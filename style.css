@@ -1,0 +1,935 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #0d3b2a, #1a5c3a);
+    color: #fff;
+    min-height: 100vh;
+    padding: 15px;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 95vh;
+    gap: 15px;
+}
+
+header {
+    text-align: center;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+h1 {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+}
+
+.subtitle {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.game-area {
+    display: flex;
+    flex: 1;
+    gap: 15px;
+    min-height: 0;
+}
+
+.main-game {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-width: 0;
+}
+
+.sidebar {
+    flex: 1;
+    min-width: 350px; /* ขยายความกว้างขั้นต่ำ */
+    max-width: 400px; /* ขยายความกว้างสูงสุด */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.log-container {
+    flex-shrink: 0;
+}
+
+.game-info {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+}
+
+.pot, .dealer, .current-bet, .game-phase {
+    font-size: 1rem;
+    font-weight: bold;
+    text-align: center;
+}
+
+.pot span, .current-bet span {
+    color: #ffd700;
+    display: block;
+    margin-top: 3px;
+    font-size: 1.2rem;
+}
+
+.community-cards-section {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.community-cards-label {
+    margin-bottom: 15px;
+    font-weight: bold;
+    color: #ffd700;
+    font-size: 1.4rem;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+}
+
+.community-cards {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.players-section {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.players-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    height: 100%;
+}
+
+.player-area {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.player-info {
+    background: linear-gradient(145deg, rgba(0, 0, 0, 0.9), rgba(30, 30, 30, 0.9));
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.player-info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #ffd700, transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.player-info.active {
+    border-color: #ffd700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+}
+
+.player-info.active::before {
+    opacity: 1;
+}
+
+.player-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.player-status {
+    font-size: 0.9rem;
+    color: #aaa;
+    min-height: 1.2em;
+    font-weight: 500;
+}
+
+.player-chips {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 1rem;
+    margin-top: 5px;
+}
+
+.player-cards {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px 0;
+    flex: 1;
+    align-items: center;
+    min-height: 0;
+}
+
+.card {
+    width: 70px;
+    height: 98px;
+    background: #fff;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 6px;
+    color: #000;
+    font-weight: bold;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.card.red {
+    color: #d00;
+}
+
+.card.black {
+    color: #000;
+}
+
+.card-back {
+    background: linear-gradient(135deg, #1a3a7a, #3a5a9a);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    border: 2px solid #fff;
+}
+
+.card-top, .card-bottom {
+    font-size: 0.9rem;
+    z-index: 2;
+    position: relative;
+}
+
+.card-center {
+    font-size: 1.8rem;
+    text-align: center;
+    z-index: 2;
+    position: relative;
+}
+
+.hand-rank {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px;
+    border-radius: 6px;
+    min-height: 1.4em;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+button {
+    padding: 10px 18px;
+    font-size: 0.95rem;
+    background: linear-gradient(145deg, #ffd700, #e6c200);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    box-shadow: 0 3px 0 #b39700;
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    min-width: 80px;
+    max-width: 120px;
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+button:hover {
+    background: linear-gradient(145deg, #ffdf33, #ffd700);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 0 #b39700;
+}
+
+button:hover::before {
+    left: 100%;
+}
+
+button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 0 #b39700;
+}
+
+button:disabled {
+    background: linear-gradient(145deg, #666, #555);
+    color: #999;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 3px 0 #444;
+}
+
+button:disabled::before {
+    display: none;
+}
+
+#continue-btn {
+    background: linear-gradient(145deg, #4CAF50, #45a049);
+    box-shadow: 0 3px 0 #2E7D32;
+}
+
+#continue-btn:hover {
+    background: linear-gradient(145deg, #66BB6A, #4CAF50);
+    box-shadow: 0 5px 0 #2E7D32;
+}
+
+.bet-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bet-amount {
+    padding: 8px 15px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    font-weight: bold;
+    min-width: 70px;
+    text-align: center;
+    font-size: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bet-slider {
+    width: 150px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.bet-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffd700;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.bet-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffd700;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.game-log {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 15px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    min-height: 0;
+}
+
+.log-header {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    text-align: center;
+    color: #ffd700;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.log-entries {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    min-height: 0;
+}
+
+/* Custom scrollbar */
+.log-entries::-webkit-scrollbar {
+    width: 6px;
+}
+
+.log-entries::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.log-entries::-webkit-scrollbar-thumb {
+    background: #ffd700;
+    border-radius: 3px;
+}
+
+.log-entries::-webkit-scrollbar-thumb:hover {
+    background: #ffdf33;
+}
+
+.log-entry {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    line-height: 1.4;
+    font-size: 0.9rem;
+    transition: background 0.2s ease;
+}
+
+.log-entry:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.dealer-indicator {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background: #ffd700;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { 
+        transform: scale(1); 
+        box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+    }
+    50% { 
+        transform: scale(1.1); 
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.9);
+    }
+    100% { 
+        transform: scale(1); 
+        box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+    }
+}
+
+@keyframes dealCard {
+    0% { 
+        transform: scale(0) rotate(-180deg); 
+        opacity: 0; 
+    }
+    70% { 
+        transform: scale(1.1) rotate(10deg); 
+        opacity: 0.8; 
+    }
+    100% { 
+        transform: scale(1) rotate(0deg); 
+        opacity: 1; 
+    }
+}
+
+.card.dealing {
+    animation: dealCard 0.6s ease-out forwards;
+}
+
+.thinking {
+    color: #ffd700 !important;
+    font-style: italic;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* เพิ่มการรองรับสำหรับ Firefox */
+@-moz-keyframes pulse {
+    0% { 
+        transform: scale(1); 
+        box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+    }
+    50% { 
+        transform: scale(1.1); 
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.9);
+    }
+    100% { 
+        transform: scale(1); 
+        box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+    }
+}
+
+@-moz-keyframes dealCard {
+    0% { 
+        transform: scale(0) rotate(-180deg); 
+        opacity: 0; 
+    }
+    70% { 
+        transform: scale(1.1) rotate(10deg); 
+        opacity: 0.8; 
+    }
+    100% { 
+        transform: scale(1) rotate(0deg); 
+        opacity: 1; 
+    }
+}
+
+@-moz-keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* สไตล์สำหรับส่วนแสดงลำดับมือไพ่ที่ปรับปรุงแล้ว */
+.hand-ranking-section {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.hand-ranking-header {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    text-align: center;
+    color: #ffd700;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.hand-ranking-image {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+.hand-ranking-image img {
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .players-container {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+    }
+    
+    .game-info {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .game-area {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        min-width: 100%;
+        max-width: 100%;
+        order: 3;
+        flex-direction: row;
+        gap: 15px;
+    }
+    
+    .log-container {
+        flex: 1;
+    }
+    
+    .hand-ranking-section {
+        flex: 1;
+        min-height: 300px;
+    }
+    
+    .hand-ranking-image img {
+        max-height: 250px;
+        width: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .players-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, auto);
+    }
+    
+    .card {
+        width: 60px;
+        height: 84px;
+    }
+    
+    .card-center {
+        font-size: 1.5rem;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    .action-buttons {
+        gap: 8px;
+    }
+    
+    button {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        min-width: 70px;
+    }
+    
+    .community-cards {
+        gap: 8px;
+    }
+    
+    .community-cards-label {
+        font-size: 1.2rem;
+    }
+    
+    .bet-slider {
+        width: 120px;
+    }
+    
+    .sidebar {
+        flex-direction: column;
+    }
+    
+    .hand-ranking-section {
+        min-height: auto;
+    }
+    
+    .hand-ranking-image img {
+        max-height: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        gap: 10px;
+        min-height: 90vh;
+    }
+    
+    header {
+        padding: 10px;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    .subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .game-info, .community-cards-section, .players-section, .controls, .game-log, .hand-ranking-section {
+        padding: 12px;
+    }
+    
+    .card {
+        width: 50px;
+        height: 70px;
+    }
+    
+    .card-center {
+        font-size: 1.2rem;
+    }
+    
+    .card-top, .card-bottom {
+        font-size: 0.8rem;
+    }
+    
+    .action-buttons {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 5px;
+        justify-content: flex-start;
+    }
+    
+    button {
+        flex: 0 0 auto;
+        min-width: 65px;
+        padding: 8px 10px;
+        font-size: 0.85rem;
+    }
+    
+    .bet-slider {
+        width: 100px;
+    }
+    
+    .bet-amount {
+        min-width: 60px;
+        font-size: 0.9rem;
+    }
+    
+    .player-name {
+        font-size: 1rem;
+    }
+    
+    .player-chips {
+        font-size: 0.9rem;
+    }
+    
+    .hand-ranking-header {
+        font-size: 1.1rem;
+    }
+    
+    .hand-ranking-image img {
+        max-height: 180px;
+    }
+}
+
+/* ป้องกันการเลือกข้อความ */
+button, .card {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* เพิ่มการรองรับสำหรับการพิมพ์ */
+@media print {
+    .controls, .action-buttons, .bet-controls {
+        display: none;
+    }
+}
+.winner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    cursor: pointer;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.winner-box {
+    background: transparent;
+    padding: 0;
+    text-align: center;
+    animation: textGlow 3s infinite alternate;
+    margin-bottom: 30px;
+}
+
+.winner-text {
+    font-size: 4rem;
+    font-weight: 900;
+    color: #FFD700;
+    text-shadow: 
+        3px 3px 0 #8B4513,
+        -3px -3px 0 #8B4513,
+        3px -3px 0 #8B4513,
+        -3px 3px 0 #8B4513,
+        0 0 20px rgba(255, 215, 0, 0.7),
+        0 0 40px rgba(255, 215, 0, 0.5);
+    margin-bottom: 20px;
+    animation: floatText 2s ease-in-out infinite;
+    line-height: 1.2;
+}
+
+.chips-won {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #90EE90;
+    text-shadow: 
+        2px 2px 0 #006400,
+        -2px -2px 0 #006400,
+        2px -2px 0 #006400,
+        -2px 2px 0 #006400,
+        0 0 15px rgba(144, 238, 144, 0.6);
+    animation: pulseChips 1.5s ease-in-out infinite;
+}
+
+.continue-prompt {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.2rem;
+    margin-top: 40px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+    animation: blink 2s infinite;
+    font-weight: 500;
+}
+
+/* Animations ใหม่ */
+@keyframes floatText {
+    0%, 100% { 
+        transform: translateY(0) scale(1);
+    }
+    50% { 
+        transform: translateY(-10px) scale(1.05);
+    }
+}
+
+@keyframes pulseChips {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% { 
+        transform: scale(1.1);
+        opacity: 0.9;
+    }
+}
+
+@keyframes textGlow {
+    0% { 
+        filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+    }
+    100% { 
+        filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.8));
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .winner-text {
+        font-size: 3rem;
+    }
+    
+    .chips-won {
+        font-size: 1.5rem;
+    }
+    
+    .continue-prompt {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .winner-text {
+        font-size: 2.5rem;
+        text-shadow: 
+            2px 2px 0 #8B4513,
+            -2px -2px 0 #8B4513,
+            2px -2px 0 #8B4513,
+            -2px 2px 0 #8B4513,
+            0 0 15px rgba(255, 215, 0, 0.7);
+    }
+    
+    .chips-won {
+        font-size: 1.2rem;
+        text-shadow: 
+            1px 1px 0 #006400,
+            -1px -1px 0 #006400,
+            1px -1px 0 #006400,
+            -1px 1px 0 #006400;
+    }
+
+}

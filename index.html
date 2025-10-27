@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sabay Poker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sabay Poker</h1>
+            <p class="subtitle">Poker OF Nuangsadao</p>
+        </header>
+        
+        <div class="game-area">
+            <div class="main-game">
+                <!-- ส่วนเกมเดิมทั้งหมด -->
+                <div class="game-info">
+                    <div class="pot">เงินกองกลาง<br><span id="pot-amount">0</span></div>
+                    <div class="dealer">เจ้ามือ<br><span id="dealer-name">-</span></div>
+                    <div class="current-bet">เดิมพันปัจจุบัน<br><span id="current-bet">0</span></div>
+                    <div class="game-phase">เฟส<br><span id="game-phase">Pre-flop</span></div>
+                </div>
+                
+                <div class="community-cards-section">
+                    <div class="community-cards-label">ไพ่กองกลาง</div>
+                    <div class="community-cards" id="community-cards">
+                        <!-- การ์ดกองกลางจะถูกเพิ่มโดย JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="players-section">
+                    <div class="players-container">
+                        <!-- ผู้เล่นจริง (คุณ) - อยู่ซ้ายสุด -->
+                        <div class="player-area" id="player-user">
+                            <div class="player-info">
+                                <div class="player-name">
+                                    <span class="dealer-indicator" id="dealer-user" style="display: none;"></span>
+                                    คุณ
+                                </div>
+                                <div class="player-status" id="status-user">รอ</div>
+                                <div class="player-chips">ชิป: <span id="chips-user">1500</span></div>
+                            </div>
+                            <div class="player-cards">
+                                <!-- การ์ดจะถูกเพิ่มโดย JavaScript -->
+                            </div>
+                            <div class="hand-rank" id="hand-user">-</div>
+                        </div>
+                        
+                        <!-- ผู้เล่น AI 1 -->
+                        <div class="player-area" id="player1">
+                            <div class="player-info">
+                                <div class="player-name">
+                                    <span class="dealer-indicator" id="dealer1" style="display: none;"></span>
+                                    AI 1
+                                </div>
+                                <div class="player-status" id="status1">รอ</div>
+                                <div class="player-chips">ชิป: <span id="chips1">1500</span></div>
+                            </div>
+                            <div class="player-cards">
+                                <div class="card card-back"></div>
+                                <div class="card card-back"></div>
+                            </div>
+                            <div class="hand-rank" id="hand1">-</div>
+                        </div>
+                        
+                        <!-- ผู้เล่น AI 2 -->
+                        <div class="player-area" id="player2">
+                            <div class="player-info">
+                                <div class="player-name">
+                                    <span class="dealer-indicator" id="dealer2" style="display: none;"></span>
+                                    AI 2
+                                </div>
+                                <div class="player-status" id="status2">รอ</div>
+                                <div class="player-chips">ชิป: <span id="chips2">1500</span></div>
+                            </div>
+                            <div class="player-cards">
+                                <div class="card card-back"></div>
+                                <div class="card card-back"></div>
+                            </div>
+                            <div class="hand-rank" id="hand2">-</div>
+                        </div>
+                        
+                        <!-- ผู้เล่น AI 3 -->
+                        <div class="player-area" id="player3">
+                            <div class="player-info">
+                                <div class="player-name">
+                                    <span class="dealer-indicator" id="dealer3" style="display: none;"></span>
+                                    AI 3
+                                </div>
+                                <div class="player-status" id="status3">รอ</div>
+                                <div class="player-chips">ชิป: <span id="chips3">1500</span></div>
+                            </div>
+                            <div class="player-cards">
+                                <div class="card card-back"></div>
+                                <div class="card card-back"></div>
+                            </div>
+                            <div class="hand-rank" id="hand3">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <div class="action-buttons">
+                        <button id="start-btn">เริ่มเกม</button>
+                        <button id="fold-btn" disabled>Fold</button>
+                        <button id="check-btn" disabled>Check</button>
+                        <button id="call-btn" disabled>Call</button>
+                        <button id="raise-btn" disabled>Raise</button>
+                        <button id="continue-btn" style="display: none;">เล่นต่อ</button>
+                        <button id="reset-btn">เริ่มใหม่</button>
+                    </div>
+                    
+                    <div class="bet-controls">
+                        <div class="bet-amount" id="bet-amount">0</div>
+                        <input type="range" min="0" max="500" value="0" class="bet-slider" id="bet-slider" disabled>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="log-container">
+                    <div class="game-log">
+                        <div class="log-header">ประวัติเกม (3 อันล่าสุด)</div>
+                        <div class="log-entries" id="log-entries">
+                            <div class="log-entry">ยินดีต้อนรับสู่เกม Texas Hold'em Poker! กด "เริ่มเกม" เพื่อเริ่มเล่น</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ส่วนภาพ Poker Hand Ranking ที่ปรับปรุงแล้ว -->
+                <div class="hand-ranking-section">
+                    <div class="hand-ranking-header">ลำดับมือไพ่ Poker</div>
+                    <div class="hand-ranking-image">
+                        <img src="poker-hand-ranking.jpg" alt="Poker Hand Ranking" 
+                             width="500" height="709" style="max-width: 100%; height: auto;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- เพิ่ม Overlay สำหรับแสดงผู้ชนะ -->
+    <div id="winner-overlay" class="winner-overlay" style="display: none;">
+        <div class="winner-box">
+            <div class="winner-text">✨ <span id="winner-name">คุณ</span> ชนะ! ✨</div>
+            <div class="chips-won">ได้รับ +<span id="chips-won-amount">0</span> ชิป!</div>
+        </div>
+        <div class="continue-prompt">กดที่ใดก็ได้เพื่อเล่นต่อ...</div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
