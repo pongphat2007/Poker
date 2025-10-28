@@ -1786,6 +1786,82 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+// เริ่มเกมเมื่อหน้าเว็บโหลดเสร็จ
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('=== DOM loaded, initializing poker game ===');
+    
+    // ฟังก์ชันสำหรับ cleanup ระบบเก่า
+    const cleanupOldSystems = () => {
+        console.log('🧹 Cleaning up old systems...');
+        
+        // Cleanup ระบบธนาคาร
+        if (window.bankSystem) {
+            if (typeof window.bankSystem.destroy === 'function') {
+                window.bankSystem.destroy();
+                console.log('✅ Old bank system destroyed');
+            }
+            window.bankSystem = null;
+        }
+        
+        // Cleanup เกม
+        if (window.pokerGame) {
+            if (typeof window.pokerGame.removeEventListeners === 'function') {
+                window.pokerGame.removeEventListeners();
+                console.log('✅ Old game event listeners removed');
+            }
+            window.pokerGame = null;
+        }
+    };
+    
+    // ทำ cleanup ก่อนสร้างระบบใหม่
+    cleanupOldSystems();
+    
+    // รอให้ DOM พร้อมทั้งหมด
+    const initializeGame = () => {
+        try {
+            // ตรวจสอบว่า element ที่จำเป็นมีอยู่
+            const requiredElements = [
+                'start-btn', 'community-cards', 'player-user', 
+                'pot-amount', 'log-entries'
+            ];
+            
+            const missingElements = requiredElements.filter(id => !document.getElementById(id));
+            if (missingElements.length > 0) {
+                console.error('❌ Missing required elements:', missingElements);
+                // รออีกสักครู่แล้วลองใหม่
+                setTimeout(initializeGame, 500);
+                return;
+            }
+            
+            // สร้างเกมใหม่
+            console.log('🎮 Creating new poker game...');
+            window.pokerGame = new TexasHoldemGame();
+            console.log('✅ Poker game initialized successfully');
+            
+            // สร้างระบบธนาคารหลังจากเกมโหลดเสร็จ
+            setTimeout(() => {
+                console.log('💰 Initializing bank system...');
+                window.bankSystem = new BankSystem(window.pokerGame);
+                console.log('✅ Bank system initialized successfully');
+                
+                // อัพเดท UI เริ่มต้น
+                window.pokerGame.updateUI();
+                window.bankSystem.updateBankDisplay();
+                
+                console.log('🎉 All systems ready! Game can now start.');
+                
+            }, 1000);
+            
+        } catch (error) {
+            console.error('❌ Error initializing game:', error);
+            // ลองใหม่อีกครั้งใน 1 วินาที
+            setTimeout(initializeGame, 1000);
+        }
+    };
+    
+    // เริ่มต้นการ initialize
+    initializeGame();
+});
 
 
 
