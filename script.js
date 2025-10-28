@@ -1307,20 +1307,33 @@ resetRound() {
     
     // เพิ่มบันทึกในประวัติเกม
     addLogEntry(message) {
-        const logEntries = document.getElementById('log-entries');
-        if (!logEntries) return;
-        
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = message;
-        logEntries.appendChild(entry);
-        
-        while (logEntries.children.length > 3) {
-            logEntries.removeChild(logEntries.firstChild);
-        }
-        
-        logEntries.scrollTop = logEntries.scrollHeight;
+    const logEntries = document.getElementById('log-entries');
+    if (!logEntries) {
+        console.error('ไม่พบ element log-entries');
+        return;
     }
+    
+    // ตรวจสอบว่า log นี้เพิ่งถูกเพิ่มไปหรือไม่ (ป้องกันซ้ำ)
+    const lastEntry = logEntries.lastElementChild;
+    if (lastEntry && lastEntry.innerHTML === message) {
+        console.log('ป้องกันการเพิ่ม log ซ้ำ:', message);
+        return;
+    }
+    
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = message;
+    logEntries.appendChild(entry);
+    
+    // จำกัดจำนวน log ที่แสดง (เพิ่มจาก 3 เป็น 5 เพื่อดูปัญหาชัดเจนขึ้น)
+    while (logEntries.children.length > 5) {
+        logEntries.removeChild(logEntries.firstChild);
+    }
+    
+    logEntries.scrollTop = logEntries.scrollHeight;
+    
+    console.log('เพิ่ม log:', message);
+}
     
     // ตั้งค่า event listeners
    initializeEventListeners() {
@@ -1790,6 +1803,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
 
