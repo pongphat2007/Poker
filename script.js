@@ -1197,49 +1197,43 @@ class TexasHoldemGame {
     }
     
     // รีเซ็ตรอบ
-    resetRound() {
-        this.communityCards = [];
-        this.pot = 0;
-        this.currentBet = 0;
-        this.gamePhase = 'preflop';
-        this.bettingRoundComplete = false;
-        this.showAICards = false;
-        
-        const communityContainer = document.getElementById('community-cards');
-        if (communityContainer) {
-            communityContainer.innerHTML = '';
-        }
-        
-        this.players.forEach(player => {
-            if (!player.isEliminated) {
-                player.cards = [];
-                player.handRank = '';
-                player.status = 'waiting';
-                player.isFolded = false;
-                player.currentBet = 0;
-            }
-        });
-        
-        this.initializeDeck();
-        this.shuffleDeck();
+resetRound() {
+    console.log('รีเซ็ตรอบเกม');
+    
+    this.communityCards = [];
+    this.pot = 0;
+    this.currentBet = 0;
+    this.gamePhase = 'preflop';
+    this.bettingRoundComplete = false;
+    this.showAICards = false;
+    
+    // ล้างไพ่กองกลางใน UI
+    const communityContainer = document.getElementById('community-cards');
+    if (communityContainer) {
+        communityContainer.innerHTML = '';
+        console.log('ล้างไพ่กองกลางเรียบร้อย');
     }
     
-    // รีเซ็ตเกม
-    resetGame() {
-        this.resetRound();
-        this.players.forEach(player => {
-            player.chips = 1500;
-            player.isEliminated = false;
-        });
-        this.gameStarted = false;
-        this.gameOver = false;
-        this.roundCompleted = false;
-        this.updateUI();
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('continue-btn').style.display = 'none';
-        this.disablePlayerActions();
-        this.addLogEntry('เริ่มเกมใหม่!');
-    }
+    // รีเซ็ตสถานะผู้เล่น (เฉพาะผู้ที่ยังไม่ถูกคัดออก)
+    this.players.forEach(player => {
+        if (!player.isEliminated) {
+            player.cards = [];
+            player.handRank = '';
+            player.status = 'waiting';
+            player.isFolded = false;
+            player.currentBet = 0;
+            
+            // อัพเดทการแสดงไพ่
+            this.updatePlayerCards(player);
+        }
+    });
+    
+    // สร้างและสับไพ่ใหม่
+    this.initializeDeck();
+    this.shuffleDeck();
+    
+    console.log('รีเซ็ตรอบเกมเรียบร้อย');
+}
     
     // อัพเดท UI (แก้ไขแล้ว)
     updateUI() {
@@ -1735,5 +1729,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
