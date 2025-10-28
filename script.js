@@ -1455,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.pokerGame = new TexasHoldemGame();
 
 });
-// คลาสระบบธนาคาร (แก้ไข error แล้ว)
+// คลาสระบบธนาคาร (แก้ไขแล้ว - ใช้ ID ที่ถูกต้อง)
 class BankSystem {
     constructor(pokerGame) {
         this.pokerGame = pokerGame;
@@ -1465,81 +1465,36 @@ class BankSystem {
         this.transactions = ['เริ่มต้น: เงิน 2000 ชิป'];
         this.isProcessing = false;
         
-        // ตรวจสอบ DOM ก่อนเริ่มต้น
-        if (!this.checkDOMElements()) {
-            console.log('🔄 Retrying bank initialization in 500ms...');
-            setTimeout(() => {
-                if (this.checkDOMElements()) {
-                    this.initializeBankUI();
-                    this.startPassiveIncomeTimer();
-                    this.updateBankDisplay();
-                } else {
-                    console.error('❌ Failed to initialize bank: DOM elements missing');
-                }
-            }, 500);
-            return;
-        }
-        
         this.initializeBankUI();
         this.startPassiveIncomeTimer();
         this.updateBankDisplay();
     }
     
-    // Method ตรวจสอบ DOM elements
-    checkDOMElements() {
-        const requiredElements = [
-            'bank-controls', 'bank-balance', 'table-chips',
-            'deposit-amount', 'withdraw-amount'
-        ];
-        
-        for (let id of requiredElements) {
-            if (!document.getElementById(id)) {
-                console.warn(`⚠️ Missing element: #${id}`);
-                return false;
-            }
-        }
-        return true;
-    }
-    
+    // เริ่มต้น UI ธนาคาร (แก้ไข ID ให้ตรงกับ HTML)
     initializeBankUI() {
         console.log('🏦 Initializing bank UI...');
-        
-        // อัพเดทชิพบนโต๊ะ
         this.updateTableChips();
         
-        // ตรวจสอบอีกครั้งก่อนเพิ่ม event listeners
-        const bankControls = document.getElementById('bank-controls');
-        if (!bankControls) {
-            console.error('❌ bank-controls not found');
+        // ⭐️ ใช้ ID ที่มีอยู่ใน HTML จริงๆ
+        const bankPanel = document.querySelector('.bank-panel');
+        if (!bankPanel) {
+            console.error('❌ ไม่พบ .bank-panel ใน DOM');
             return;
         }
         
-        // Event listener สำหรับปุ่มธนาคาร
-        bankControls.addEventListener('click', (e) => {
-            if (this.isProcessing) return;
-            
-            if (e.target.id === 'deposit-btn') this.deposit();
-            if (e.target.id === 'withdraw-btn') this.withdraw();
-            if (e.target.id === 'auto-refill-btn') this.autoRefill();
-        });
+        // Event listeners สำหรับปุ่มต่างๆ (ใช้ ID โดยตรง)
+        document.getElementById('deposit-btn')?.addEventListener('click', () => this.deposit());
+        document.getElementById('withdraw-btn')?.addEventListener('click', () => this.withdraw());
+        document.getElementById('auto-refill-btn')?.addEventListener('click', () => this.autoRefill());
         
-        // Event listeners สำหรับ input
-        const depositInput = document.getElementById('deposit-amount');
-        const withdrawInput = document.getElementById('withdraw-amount');
-        
-        if (depositInput) {
-            depositInput.addEventListener('input', () => this.validateInputs());
-        }
-        
-        if (withdrawInput) {
-            withdrawInput.addEventListener('input', () => this.validateInputs());
-        }
+        document.getElementById('deposit-amount')?.addEventListener('input', () => this.validateInputs());
+        document.getElementById('withdraw-amount')?.addEventListener('input', () => this.validateInputs());
         
         this.setupGameStartInterceptor();
         console.log('✅ Bank UI initialized successfully');
     }
     
-    // Method ใหม่: ติดตั้งการบล็อกการเริ่มเกมอย่างปลอดภัย
+    // Method ตรวจสอบว่าสามารถเริ่มเกมได้ไหม
     setupGameStartInterceptor() {
         const startBtn = document.getElementById('start-btn');
         if (!startBtn) return;
@@ -1552,20 +1507,16 @@ class BankSystem {
         }, true);
     }
     
-    // Method ใหม่: ตรวจสอบว่าสามารถเริ่มเกมได้ไหม
     canStartGame() {
         const userPlayer = this.pokerGame.players[0];
         
-        // ตรวจสอบว่าเกมกำลังทำงานอยู่หรือไม่
         if (this.pokerGame.gameStarted && !this.pokerGame.roundCompleted) {
             return true;
         }
         
-        // ตรวจสอบชิพเฉพาะเมื่อจะเริ่มเกมใหม่
         if (userPlayer.chips <= 0) {
             this.showBankMessage('⚠️ กรุณาเติมชิพก่อนเริ่มเกม!', 'warning');
             
-            // แสดงวิธีแก้ไข
             setTimeout(() => {
                 if (this.bankBalance > 0) {
                     this.showBankMessage('💡 คลิก "เติมชิพอัตโนมัติ" เพื่อเริ่มเกม', 'info');
@@ -1580,30 +1531,6 @@ class BankSystem {
         return true;
     }
     
-    // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม
-    checkTableChips() {
-        if (this.isProcessing) return false;
-        
-        const userPlayer = this.pokerGame.players[0];
-        const tableChips = userPlayer.chips;
-        
-        if (tableChips <= 0) {
-            this.addTransaction('❌ ไม่สามารถเริ่มเกมได้: ไม่มีชิพบนโต๊ะ');
-            this.showBankMessage('⚠️ กรุณาเติมชิพก่อนเริ่มเกม!', 'warning');
-            
-            // แสดงปุ่มเติมชิพอัตโนมัติ
-            setTimeout(() => {
-                if (this.bankBalance > 0) {
-                    this.showBankMessage('💡 คลิก "เติมชิพอัตโนมัติ" เพื่อเริ่มเกม', 'info');
-                }
-            }, 1000);
-            
-            return false;
-        }
-        
-        return true;
-    }
-    
     // อัพเดทจำนวนชิพบนโต๊ะ
     updateTableChips() {
         const userPlayer = this.pokerGame.players[0];
@@ -1611,7 +1538,6 @@ class BankSystem {
         if (tableChipsElement) {
             tableChipsElement.textContent = userPlayer.chips;
             
-            // แสดงสีเตือนเมื่อชิพน้อย
             if (userPlayer.chips < 500) {
                 tableChipsElement.style.color = '#ff6b6b';
             } else if (userPlayer.chips < 1000) {
@@ -1663,7 +1589,7 @@ class BankSystem {
         }
     }
     
-    // Method ใหม่: โอนเงินไปธนาคารอย่างปลอดภัย
+    // โอนเงินไปธนาคาร
     transferChipsToBank(player, amount) {
         const actualAmount = Math.min(amount, player.chips);
         
@@ -1678,7 +1604,7 @@ class BankSystem {
         });
     }
     
-    // Method ใหม่: โอนเงินไปโต๊ะอย่างปลอดภัย
+    // โอนเงินไปโต๊ะ
     transferChipsToTable(amount) {
         const userPlayer = this.pokerGame.players[0];
         const actualAmount = Math.min(amount, this.bankBalance);
@@ -1725,7 +1651,7 @@ class BankSystem {
         }
     }
     
-    // Method ใหม่: ตรวจสอบจำนวนเงิน
+    // ตรวจสอบจำนวนเงิน
     validateAmount(amount, type) {
         if (isNaN(amount) || amount <= 0) {
             this.showBankMessage('⚠️ กรุณากรอกจำนวนเงินที่ถูกต้อง', 'error');
@@ -1754,48 +1680,21 @@ class BankSystem {
         const withdrawInput = document.getElementById('withdraw-amount');
         const userPlayer = this.pokerGame.players[0];
         
-        const depositAmount = parseInt(depositInput.value) || 0;
-        const withdrawAmount = parseInt(withdrawInput.value) || 0;
+        const depositAmount = parseInt(depositInput?.value) || 0;
+        const withdrawAmount = parseInt(withdrawInput?.value) || 0;
         
-        document.getElementById('deposit-amount').max = userPlayer.chips;
-        document.getElementById('withdraw-amount').max = this.bankBalance;
+        if (depositInput) depositInput.max = userPlayer.chips;
+        if (withdrawInput) withdrawInput.max = this.bankBalance;
         
-        document.getElementById('deposit-btn').disabled = 
-            depositAmount <= 0 || depositAmount > userPlayer.chips;
+        const depositBtn = document.getElementById('deposit-btn');
+        const withdrawBtn = document.getElementById('withdraw-btn');
         
-        document.getElementById('withdraw-btn').disabled = 
-            withdrawAmount <= 0 || withdrawAmount > this.bankBalance;
-        
-        this.updateInputHints(depositAmount, withdrawAmount);
-    }
-    
-    // Method ใหม่: แสดงคำแนะนำ input
-    updateInputHints(depositAmount, withdrawAmount) {
-        const userPlayer = this.pokerGame.players[0];
-        
-        document.querySelectorAll('.input-hint').forEach(hint => hint.remove());
-        
-        if (depositAmount > userPlayer.chips) {
-            this.createInputHint('deposit-amount', `⚠️ คุณมีเพียง ${userPlayer.chips} ชิพ`);
+        if (depositBtn) {
+            depositBtn.disabled = depositAmount <= 0 || depositAmount > userPlayer.chips;
         }
         
-        if (withdrawAmount > this.bankBalance) {
-            this.createInputHint('withdraw-amount', `⚠️ คุณมีเพียง ${this.bankBalance} ชิพในธนาคาร`);
-        }
-    }
-    
-    // Method ใหม่: สร้างคำแนะนำ input
-    createInputHint(inputId, message) {
-        const input = document.getElementById(inputId);
-        const existingHint = input.parentNode.querySelector('.input-hint');
-        
-        if (!existingHint) {
-            const hint = document.createElement('div');
-            hint.className = 'input-hint';
-            hint.style.color = '#ff6b6b';
-            hint.style.fontSize = '12px';
-            hint.textContent = message;
-            input.parentNode.appendChild(hint);
+        if (withdrawBtn) {
+            withdrawBtn.disabled = withdrawAmount <= 0 || withdrawAmount > this.bankBalance;
         }
     }
     
@@ -1906,14 +1805,16 @@ class BankSystem {
     }
 }
 
-// แก้ไขการเริ่มต้นระบบธนาคาร
+// การเริ่มต้นระบบธนาคาร
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing game...');
     
     const initBankSystem = () => {
-        const bankControls = document.getElementById('bank-controls');
+        // ตรวจสอบว่า element ธนาคารมีอยู่จริง
+        const bankBalance = document.getElementById('bank-balance');
+        const tableChips = document.getElementById('table-chips');
         
-        if (window.pokerGame && window.pokerGame.players && bankControls) {
+        if (window.pokerGame && window.pokerGame.players && bankBalance && tableChips) {
             try {
                 window.bankSystem = new BankSystem(window.pokerGame);
                 console.log('✅ Bank system initialized successfully');
@@ -1921,7 +1822,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('❌ Bank system initialization failed:', error);
             }
         } else {
-            console.log('⏳ Waiting for game and bank elements...');
+            console.log('⏳ Waiting for bank elements...');
             setTimeout(initBankSystem, 300);
         }
     };
