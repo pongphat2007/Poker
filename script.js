@@ -1393,6 +1393,8 @@ makeAIDecision(player) {
         const continueBtn = document.getElementById('continue-btn');
         const betSlider = document.getElementById('bet-slider');
         const resetBtn = document.getElementById('reset-btn');
+        const debugBtn = document.getElementById('debug-btn');
+        const forceTurnBtn = document.getElementById('force-turn-btn');
         
         if (startBtn) {
             startBtn.addEventListener('click', () => {
@@ -1453,6 +1455,16 @@ makeAIDecision(player) {
                 this.resetGame();
             });
         }
+        if (debugBtn) {
+    debugBtn.addEventListener('click', () => {
+        this.debugAIState();
+    });
+}
+if (forceTurnBtn) {
+    forceTurnBtn.addEventListener('click', () => {
+        this.forceNextTurn();
+    });
+}
         
         console.log('Game event listeners initialized');
     }
@@ -1760,4 +1772,5 @@ forceNextTurn() {
     }
     this.nextPlayerTurn();
 }
+
 
