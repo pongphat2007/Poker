@@ -78,6 +78,9 @@ class TexasHoldemGame {
         this.gameOver = false;
         this.roundCompleted = false;
         this.showAICards = false;
+
+        this.startGameLock = false; // สำหรับป้องกันการเรียก startGame ซ้ำ
+    this.eventListeners = [];   // สำหรับจัดการ event listeners
         
         this.initializeEventListeners();
         this.initializeDeck();
@@ -1783,6 +1786,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
 
