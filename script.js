@@ -856,20 +856,24 @@ class TexasHoldemGame {
     
     // ต่อไปยังเฟสถัดไปของเกม
     nextGamePhase() {
-        if (this.gamePhase === 'preflop') {
-            this.gamePhase = 'flop';
-            this.dealCommunityCards(3);
-        } else if (this.gamePhase === 'flop') {
-            this.gamePhase = 'turn';
-            this.dealCommunityCards(1);
-        } else if (this.gamePhase === 'turn') {
-            this.gamePhase = 'river';
-            this.dealCommunityCards(1);
-        } else if (this.gamePhase === 'river') {
-            this.gamePhase = 'showdown';
-            this.showdown();
-        }
+    console.log('เปลี่ยนเฟสเกมจาก: ' + this.gamePhase);
+    
+    if (this.gamePhase === 'preflop') {
+        this.gamePhase = 'flop';
+        this.dealCommunityCards(3);
+    } else if (this.gamePhase === 'flop') {
+        this.gamePhase = 'turn';
+        this.dealCommunityCards(1);
+    } else if (this.gamePhase === 'turn') {
+        this.gamePhase = 'river';
+        this.dealCommunityCards(1);
+    } else if (this.gamePhase === 'river') {
+        this.gamePhase = 'showdown';
+        this.showdown();
     }
+    
+    console.log('เปลี่ยนเป็นเฟส: ' + this.gamePhase);
+}
     
     // เปรียบเทียบมือและหาผู้ชนะ
     showdown() {
@@ -1743,6 +1747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
 
