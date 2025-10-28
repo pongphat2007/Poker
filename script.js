@@ -78,9 +78,6 @@ class TexasHoldemGame {
         this.gameOver = false;
         this.roundCompleted = false;
         this.showAICards = false;
-
-        this.startGameLock = false; // สำหรับป้องกันการเรียก startGame ซ้ำ
-    this.eventListeners = [];   // สำหรับจัดการ event listeners
         
         this.initializeEventListeners();
         this.initializeDeck();
@@ -134,37 +131,22 @@ class TexasHoldemGame {
     }
     
     // เริ่มเกมใหม่ (แก้ไขแล้ว - อัพเดทไพ่ผู้เล่นที่ถูกคัดออก)
-   startGame() {
-    console.log('=== เรียก startGame() ===', new Date().toLocaleTimeString());
-    
-    // ตรวจสอบสถานะเกมอย่างละเอียด
-    if (this.gameStarted && !this.roundCompleted) {
-        console.log('❌ ยังเล่นตาเดิมอยู่ ไม่เริ่มใหม่');
-        return;
-    }
-    
-    // ป้องกันการเริ่มเกมซ้ำในช่วงเวลาสั้นๆ
-    if (this.startGameLock) {
-        console.log('❌ startGame ถูก lock อยู่');
-        return;
-    }
-    
-    this.startGameLock = true;
-    
-    try {
+    startGame() {
+        console.log('เริ่มเกมใหม่');
+        if (this.gameStarted && !this.roundCompleted) return;
+        
         this.resetRound();
         this.shuffleDeck();
         this.determineDealer();
         
-        // ตรวจสอบและคัดออกผู้เล่นที่เงินหมด
+        // ตรวจสอบและคัดออกผู้เล่นที่เงินหมด (ก่อนโพสต์บลัฟ)
         const gameEnded = this.eliminateBrokePlayers();
         if (gameEnded) {
             console.log('เกมจบแล้ว ไม่เริ่มตาใหม่');
-            this.startGameLock = false;
-            return;
+            return; // ถ้าเกมจบแล้ว就不再ดำเนินต่อ
         }
         
-        // อัพเดทการแสดงไพ่ให้ผู้เล่นทุกคน
+        // ⭐️ อัพเดทการแสดงไพ่ให้ผู้เล่นทุกคน (ทำให้ผู้เล่นที่ถูกคัดออกแสดงไพ่คว่ำ)
         this.players.forEach(player => {
             this.updatePlayerCards(player);
         });
@@ -179,7 +161,6 @@ class TexasHoldemGame {
             }
             document.getElementById('start-btn').disabled = false;
             document.getElementById('continue-btn').style.display = 'none';
-            this.startGameLock = false;
             return;
         }
         
@@ -195,34 +176,20 @@ class TexasHoldemGame {
         document.getElementById('start-btn').disabled = true;
         document.getElementById('continue-btn').style.display = 'none';
         
-        this.addLogEntry('🎮 เริ่มเกมใหม่! เจ้ามือ: ' + this.players[this.dealerIndex].name);
-        console.log('✅ เริ่มตาใหม่กับผู้เล่น:', activePlayers.map(p => p.name));
+        this.addLogEntry('เริ่มเกมใหม่! เจ้ามือ: ' + this.players[this.dealerIndex].name);
+        console.log('เริ่มตาใหม่กับผู้เล่น:', activePlayers.map(p => p.name));
         
         // เริ่มรอบการเดิมพัน preflop
         setTimeout(() => {
             this.startBettingRound();
-            this.startGameLock = false; // ปลด lock
         }, 2000);
-        
-    } catch (error) {
-        console.error('❌ ข้อผิดพลาดใน startGame:', error);
-        this.startGameLock = false;
     }
-}
+
     // เล่นต่อหลังจากจบรอบ
     continueGame() {
-    console.log('กดเล่นต่อ, รอบที่แล้วจบแล้ว?: ' + this.roundCompleted);
-    
-    if (!this.roundCompleted) {
-        console.log('รอบยังไม่จบ ไม่สามารถเล่นต่อได้');
-        return;
+        if (!this.roundCompleted) return;
+        this.startGame();
     }
-    
-    // ซ่อนปุ่มเล่นต่อก่อนเริ่มเกมใหม่
-    document.getElementById('continue-btn').style.display = 'none';
-    
-    this.startGame();
-}
     
     // กำหนดเจ้ามือ (แก้ไขแล้ว)
     determineDealer() {
@@ -456,49 +423,44 @@ class TexasHoldemGame {
     }
     
     // แจกไพ่กองกลาง
-   dealCommunityCards(count) {
-    console.log('กำลังแจกไพ่กองกลาง ' + count + ' ใบ, เฟสปัจจุบัน: ' + this.gamePhase);
-    this.addLogEntry('กำลังแจกไพ่กองกลาง...');
-    
-    for (let i = 0; i < count; i++) {
+    dealCommunityCards(count) {
+        this.addLogEntry('กำลังแจกไพ่กองกลาง...');
+        
+        for (let i = 0; i < count; i++) {
+            setTimeout(() => {
+                if (this.deck.length === 0) {
+                    console.error('ไพ่ใน deck หมดแล้ว');
+                    this.initializeDeck();
+                    this.shuffleDeck();
+                }
+                
+                const card = this.deck.pop();
+                this.communityCards.push(card);
+                this.addCommunityCard(card);
+                
+                if (this.communityCards.length === 3) {
+                    this.addLogEntry('แจกไพ่ Flop เรียบร้อยแล้ว');
+                    this.gamePhase = 'flop';
+                } else if (this.communityCards.length === 4) {
+                    this.addLogEntry('แจกไพ่ Turn เรียบร้อยแล้ว');
+                    this.gamePhase = 'turn';
+                } else if (this.communityCards.length === 5) {
+                    this.addLogEntry('แจกไพ่ River เรียบร้อยแล้ว');
+                    this.gamePhase = 'river';
+                }
+                
+                // อัพเดทแต้มมือผู้เล่น
+                this.updateAllPlayerHandRanks();
+                
+                this.updateUI();
+            }, i * 1500);
+        }
+        
         setTimeout(() => {
-            if (this.deck.length === 0) {
-                console.error('ไพ่ใน deck หมดแล้ว');
-                this.initializeDeck();
-                this.shuffleDeck();
-            }
-            
-            const card = this.deck.pop();
-            this.communityCards.push(card);
-            this.addCommunityCard(card);
-            
-            console.log('แจกไพ่กองกลางใบที่ ' + (i+1) + ': ', card);
-            
-            // อัพเดทเฟสเกมตามจำนวนไพ่กองกลาง
-            if (this.communityCards.length === 3) {
-                this.addLogEntry('แจกไพ่ Flop เรียบร้อยแล้ว');
-                this.gamePhase = 'flop';
-            } else if (this.communityCards.length === 4) {
-                this.addLogEntry('แจกไพ่ Turn เรียบร้อยแล้ว');
-                this.gamePhase = 'turn';
-            } else if (this.communityCards.length === 5) {
-                this.addLogEntry('แจกไพ่ River เรียบร้อยแล้ว');
-                this.gamePhase = 'river';
-            }
-            
-            // อัพเดทแต้มมือผู้เล่น
-            this.updateAllPlayerHandRanks();
-            
-            this.updateUI();
-        }, i * 1000); // ลดเวลาเหลือ 1 วินาทีต่อใบ
+            this.startBettingRound();
+        }, count * 1500 + 500);
     }
     
-    // เริ่มรอบการเดิมพันถัดไปหลังจากแจกไพ่เสร็จ
-    setTimeout(() => {
-        console.log('แจกไพ่กองกลางเสร็จ เริ่มรอบการเดิมพันเฟส: ' + this.gamePhase);
-        this.startBettingRound();
-    }, count * 1000 + 500);
-}
     // อัพเดทแต้มมือผู้เล่นทั้งหมด
     updateAllPlayerHandRanks() {
         this.players.forEach(player => {
@@ -874,24 +836,20 @@ class TexasHoldemGame {
     
     // ต่อไปยังเฟสถัดไปของเกม
     nextGamePhase() {
-    console.log('เปลี่ยนเฟสเกมจาก: ' + this.gamePhase);
-    
-    if (this.gamePhase === 'preflop') {
-        this.gamePhase = 'flop';
-        this.dealCommunityCards(3);
-    } else if (this.gamePhase === 'flop') {
-        this.gamePhase = 'turn';
-        this.dealCommunityCards(1);
-    } else if (this.gamePhase === 'turn') {
-        this.gamePhase = 'river';
-        this.dealCommunityCards(1);
-    } else if (this.gamePhase === 'river') {
-        this.gamePhase = 'showdown';
-        this.showdown();
+        if (this.gamePhase === 'preflop') {
+            this.gamePhase = 'flop';
+            this.dealCommunityCards(3);
+        } else if (this.gamePhase === 'flop') {
+            this.gamePhase = 'turn';
+            this.dealCommunityCards(1);
+        } else if (this.gamePhase === 'turn') {
+            this.gamePhase = 'river';
+            this.dealCommunityCards(1);
+        } else if (this.gamePhase === 'river') {
+            this.gamePhase = 'showdown';
+            this.showdown();
+        }
     }
-    
-    console.log('เปลี่ยนเป็นเฟส: ' + this.gamePhase);
-}
     
     // เปรียบเทียบมือและหาผู้ชนะ
     showdown() {
@@ -1233,43 +1191,49 @@ class TexasHoldemGame {
     }
     
     // รีเซ็ตรอบ
-resetRound() {
-    console.log('รีเซ็ตรอบเกม');
-    
-    this.communityCards = [];
-    this.pot = 0;
-    this.currentBet = 0;
-    this.gamePhase = 'preflop';
-    this.bettingRoundComplete = false;
-    this.showAICards = false;
-    
-    // ล้างไพ่กองกลางใน UI
-    const communityContainer = document.getElementById('community-cards');
-    if (communityContainer) {
-        communityContainer.innerHTML = '';
-        console.log('ล้างไพ่กองกลางเรียบร้อย');
+    resetRound() {
+        this.communityCards = [];
+        this.pot = 0;
+        this.currentBet = 0;
+        this.gamePhase = 'preflop';
+        this.bettingRoundComplete = false;
+        this.showAICards = false;
+        
+        const communityContainer = document.getElementById('community-cards');
+        if (communityContainer) {
+            communityContainer.innerHTML = '';
+        }
+        
+        this.players.forEach(player => {
+            if (!player.isEliminated) {
+                player.cards = [];
+                player.handRank = '';
+                player.status = 'waiting';
+                player.isFolded = false;
+                player.currentBet = 0;
+            }
+        });
+        
+        this.initializeDeck();
+        this.shuffleDeck();
     }
     
-    // รีเซ็ตสถานะผู้เล่น (เฉพาะผู้ที่ยังไม่ถูกคัดออก)
-    this.players.forEach(player => {
-        if (!player.isEliminated) {
-            player.cards = [];
-            player.handRank = '';
-            player.status = 'waiting';
-            player.isFolded = false;
-            player.currentBet = 0;
-            
-            // อัพเดทการแสดงไพ่
-            this.updatePlayerCards(player);
-        }
-    });
-    
-    // สร้างและสับไพ่ใหม่
-    this.initializeDeck();
-    this.shuffleDeck();
-    
-    console.log('รีเซ็ตรอบเกมเรียบร้อย');
-}
+    // รีเซ็ตเกม
+    resetGame() {
+        this.resetRound();
+        this.players.forEach(player => {
+            player.chips = 1500;
+            player.isEliminated = false;
+        });
+        this.gameStarted = false;
+        this.gameOver = false;
+        this.roundCompleted = false;
+        this.updateUI();
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('continue-btn').style.display = 'none';
+        this.disablePlayerActions();
+        this.addLogEntry('เริ่มเกมใหม่!');
+    }
     
     // อัพเดท UI (แก้ไขแล้ว)
     updateUI() {
@@ -1325,140 +1289,87 @@ resetRound() {
     
     // เพิ่มบันทึกในประวัติเกม
     addLogEntry(message) {
-    const logEntries = document.getElementById('log-entries');
-    if (!logEntries) {
-        console.error('ไม่พบ element log-entries');
-        return;
+        const logEntries = document.getElementById('log-entries');
+        if (!logEntries) return;
+        
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = message;
+        logEntries.appendChild(entry);
+        
+        while (logEntries.children.length > 3) {
+            logEntries.removeChild(logEntries.firstChild);
+        }
+        
+        logEntries.scrollTop = logEntries.scrollHeight;
     }
-    
-    // ตรวจสอบว่า log นี้เพิ่งถูกเพิ่มไปหรือไม่ (ป้องกันซ้ำ)
-    const lastEntry = logEntries.lastElementChild;
-    if (lastEntry && lastEntry.innerHTML === message) {
-        console.log('ป้องกันการเพิ่ม log ซ้ำ:', message);
-        return;
-    }
-    
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    entry.innerHTML = message;
-    logEntries.appendChild(entry);
-    
-    // จำกัดจำนวน log ที่แสดง (เพิ่มจาก 3 เป็น 5 เพื่อดูปัญหาชัดเจนขึ้น)
-    while (logEntries.children.length > 5) {
-        logEntries.removeChild(logEntries.firstChild);
-    }
-    
-    logEntries.scrollTop = logEntries.scrollHeight;
-    
-    console.log('เพิ่ม log:', message);
-}
     
     // ตั้งค่า event listeners
-   initializeEventListeners() {
-    // ลบ event listeners เดิมก่อน (ถ้ามี)
-    this.removeEventListeners();
-    
-    const startBtn = document.getElementById('start-btn');
-    const foldBtn = document.getElementById('fold-btn');
-    const checkBtn = document.getElementById('check-btn');
-    const callBtn = document.getElementById('call-btn');
-    const raiseBtn = document.getElementById('raise-btn');
-    const continueBtn = document.getElementById('continue-btn');
-    const betSlider = document.getElementById('bet-slider');
-    const resetBtn = document.getElementById('reset-btn');
-    
-    // เก็บ reference ถึง event listeners สำหรับการลบในภายหลัง
-    this.eventListeners = [];
-    
-    if (startBtn) {
-        const startHandler = () => {
-            console.log('กดเริ่มเกม');
-            this.startGame();
-        };
-        startBtn.addEventListener('click', startHandler);
-        this.eventListeners.push({ element: startBtn, type: 'click', handler: startHandler });
+    initializeEventListeners() {
+        const startBtn = document.getElementById('start-btn');
+        const foldBtn = document.getElementById('fold-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const callBtn = document.getElementById('call-btn');
+        const raiseBtn = document.getElementById('raise-btn');
+        const continueBtn = document.getElementById('continue-btn');
+        const betSlider = document.getElementById('bet-slider');
+        const resetBtn = document.getElementById('reset-btn');
+        
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                this.startGame();
+            });
+        }
+        
+        if (foldBtn) {
+            foldBtn.addEventListener('click', () => {
+                this.playerFold(this.players[this.currentPlayerIndex]);
+                this.disablePlayerActions();
+            });
+        }
+        
+        if (checkBtn) {
+            checkBtn.addEventListener('click', () => {
+                this.playerCheck(this.players[this.currentPlayerIndex]);
+                this.disablePlayerActions();
+            });
+        }
+        
+        if (callBtn) {
+            callBtn.addEventListener('click', () => {
+                this.playerCall(this.players[this.currentPlayerIndex]);
+                this.disablePlayerActions();
+            });
+        }
+        
+        if (raiseBtn) {
+            raiseBtn.addEventListener('click', () => {
+                const raiseAmount = parseInt(document.getElementById('bet-slider').value);
+                this.playerRaise(this.players[this.currentPlayerIndex], raiseAmount);
+                this.disablePlayerActions();
+            });
+        }
+        
+        if (continueBtn) {
+            continueBtn.addEventListener('click', () => {
+                this.continueGame();
+            });
+        }
+        
+        if (betSlider) {
+            betSlider.addEventListener('input', () => {
+                this.updateBetAmount();
+            });
+        }
+        
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.resetGame();
+            });
+        }
+        
+        console.log('Event listeners initialized');
     }
-    
-    if (foldBtn) {
-        const foldHandler = () => {
-            console.log('กด Fold');
-            this.playerFold(this.players[this.currentPlayerIndex]);
-            this.disablePlayerActions();
-        };
-        foldBtn.addEventListener('click', foldHandler);
-        this.eventListeners.push({ element: foldBtn, type: 'click', handler: foldHandler });
-    }
-    
-    if (checkBtn) {
-        const checkHandler = () => {
-            console.log('กด Check');
-            this.playerCheck(this.players[this.currentPlayerIndex]);
-            this.disablePlayerActions();
-        };
-        checkBtn.addEventListener('click', checkHandler);
-        this.eventListeners.push({ element: checkBtn, type: 'click', handler: checkHandler });
-    }
-    
-    if (callBtn) {
-        const callHandler = () => {
-            console.log('กด Call');
-            this.playerCall(this.players[this.currentPlayerIndex]);
-            this.disablePlayerActions();
-        };
-        callBtn.addEventListener('click', callHandler);
-        this.eventListeners.push({ element: callBtn, type: 'click', handler: callHandler });
-    }
-    
-    if (raiseBtn) {
-        const raiseHandler = () => {
-            const raiseAmount = parseInt(document.getElementById('bet-slider').value);
-            console.log('กด Raise:', raiseAmount);
-            this.playerRaise(this.players[this.currentPlayerIndex], raiseAmount);
-            this.disablePlayerActions();
-        };
-        raiseBtn.addEventListener('click', raiseHandler);
-        this.eventListeners.push({ element: raiseBtn, type: 'click', handler: raiseHandler });
-    }
-    
-    if (continueBtn) {
-        const continueHandler = () => {
-            console.log('กดเล่นต่อ');
-            this.continueGame();
-        };
-        continueBtn.addEventListener('click', continueHandler);
-        this.eventListeners.push({ element: continueBtn, type: 'click', handler: continueHandler });
-    }
-    
-    if (betSlider) {
-        const sliderHandler = () => {
-            this.updateBetAmount();
-        };
-        betSlider.addEventListener('input', sliderHandler);
-        this.eventListeners.push({ element: betSlider, type: 'input', handler: sliderHandler });
-    }
-    
-    if (resetBtn) {
-        const resetHandler = () => {
-            console.log('กดรีเซ็ตเกม');
-            this.resetGame();
-        };
-        resetBtn.addEventListener('click', resetHandler);
-        this.eventListeners.push({ element: resetBtn, type: 'click', handler: resetHandler });
-    }
-    
-    console.log('Event listeners initialized, จำนวน:', this.eventListeners.length);
-}
-
-// เพิ่ม method สำหรับลบ event listeners
-removeEventListeners() {
-    if (this.eventListeners && this.eventListeners.length > 0) {
-        console.log('ลบ event listeners เก่าจำนวน:', this.eventListeners.length);
-        this.eventListeners.forEach(({ element, type, handler }) => {
-            element.removeEventListener(type, handler);
-        });
-        this.eventListeners = [];
-    }
-}
     // ในคลาส TexasHoldemGame เพิ่ม method ต่อไปนี้:
 
 // แสดง overlay ผู้ชนะ
@@ -1559,7 +1470,39 @@ class BankSystem {
     }
     
     // เริ่มต้น UI ธนาคาร
-  ฮ
+    initializeBankUI() {
+        // อัพเดทจำนวนชิพบนโต๊ะ
+        this.updateTableChips();
+        
+        // Event Listeners
+        document.getElementById('deposit-btn').addEventListener('click', () => this.deposit());
+        document.getElementById('withdraw-btn').addEventListener('click', () => this.withdraw());
+        document.getElementById('auto-refill-btn').addEventListener('click', () => this.autoRefill());
+        document.getElementById('deposit-amount').addEventListener('input', () => this.validateInputs());
+        document.getElementById('withdraw-amount').addEventListener('input', () => this.validateInputs());
+        
+        // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม
+        const originalStartGame = this.pokerGame.startGame.bind(this.pokerGame);
+        this.pokerGame.startGame = () => {
+            if (this.checkTableChips()) {
+                originalStartGame();
+            }
+        };
+    }
+    
+    // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม
+    checkTableChips() {
+        const userPlayer = this.pokerGame.players[0];
+        const tableChips = userPlayer.chips;
+        
+        if (tableChips <= 0) {
+            this.addTransaction('❌ ไม่สามารถเริ่มเกมได้: ไม่มีชิพบนโต๊ะ');
+            this.showBankMessage('⚠️ กรุณาเติมชิพก่อนเริ่มเกม!', 'warning');
+            return false;
+        }
+        
+        return true;
+    }
     
     // อัพเดทจำนวนชิพบนโต๊ะ
     updateTableChips() {
@@ -1786,91 +1729,4 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
-// เริ่มเกมเมื่อหน้าเว็บโหลดเสร็จ
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('=== DOM loaded, initializing poker game ===');
-    
-    // ฟังก์ชันสำหรับ cleanup ระบบเก่า
-    const cleanupOldSystems = () => {
-        console.log('🧹 Cleaning up old systems...');
-        
-        // Cleanup ระบบธนาคาร
-        if (window.bankSystem) {
-            if (typeof window.bankSystem.destroy === 'function') {
-                window.bankSystem.destroy();
-                console.log('✅ Old bank system destroyed');
-            }
-            window.bankSystem = null;
-        }
-        
-        // Cleanup เกม
-        if (window.pokerGame) {
-            if (typeof window.pokerGame.removeEventListeners === 'function') {
-                window.pokerGame.removeEventListeners();
-                console.log('✅ Old game event listeners removed');
-            }
-            window.pokerGame = null;
-        }
-    };
-    
-    // ทำ cleanup ก่อนสร้างระบบใหม่
-    cleanupOldSystems();
-    
-    // รอให้ DOM พร้อมทั้งหมด
-    const initializeGame = () => {
-        try {
-            // ตรวจสอบว่า element ที่จำเป็นมีอยู่
-            const requiredElements = [
-                'start-btn', 'community-cards', 'player-user', 
-                'pot-amount', 'log-entries'
-            ];
-            
-            const missingElements = requiredElements.filter(id => !document.getElementById(id));
-            if (missingElements.length > 0) {
-                console.error('❌ Missing required elements:', missingElements);
-                // รออีกสักครู่แล้วลองใหม่
-                setTimeout(initializeGame, 500);
-                return;
-            }
-            
-            // สร้างเกมใหม่
-            console.log('🎮 Creating new poker game...');
-            window.pokerGame = new TexasHoldemGame();
-            console.log('✅ Poker game initialized successfully');
-            
-            // สร้างระบบธนาคารหลังจากเกมโหลดเสร็จ
-            setTimeout(() => {
-                console.log('💰 Initializing bank system...');
-                window.bankSystem = new BankSystem(window.pokerGame);
-                console.log('✅ Bank system initialized successfully');
-                
-                // อัพเดท UI เริ่มต้น
-                window.pokerGame.updateUI();
-                window.bankSystem.updateBankDisplay();
-                
-                console.log('🎉 All systems ready! Game can now start.');
-                
-            }, 1000);
-            
-        } catch (error) {
-            console.error('❌ Error initializing game:', error);
-            // ลองใหม่อีกครั้งใน 1 วินาที
-            setTimeout(initializeGame, 1000);
-        }
-    };
-    
-    // เริ่มต้นการ initialize
-    initializeGame();
-});
-
-
-
-
-
-
-
-
-
-
-
 
