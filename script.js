@@ -1488,39 +1488,42 @@ class BankSystem {
     }
     
     // เริ่มต้น UI ธนาคาร
-    initializeBankUI() {
-        // อัพเดทจำนวนชิพบนโต๊ะ
-        this.updateTableChips();
-        
-        // Event Listeners
-        document.getElementById('deposit-btn').addEventListener('click', () => this.deposit());
-        document.getElementById('withdraw-btn').addEventListener('click', () => this.withdraw());
-        document.getElementById('auto-refill-btn').addEventListener('click', () => this.autoRefill());
-        document.getElementById('deposit-amount').addEventListener('input', () => this.validateInputs());
-        document.getElementById('withdraw-amount').addEventListener('input', () => this.validateInputs());
-        
-        // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม
-        const originalStartGame = this.pokerGame.startGame.bind(this.pokerGame);
-        this.pokerGame.startGame = () => {
-            if (this.checkTableChips()) {
-                originalStartGame();
-            }
-        };
-    }
+   initializeBankUI() {
+    // อัพเดทจำนวนชิพบนโต๊ะ
+    this.updateTableChips();
     
-    // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม
-    checkTableChips() {
+    // Event Listeners
+    document.getElementById('deposit-btn').addEventListener('click', () => this.deposit());
+    document.getElementById('withdraw-btn').addEventListener('click', () => this.withdraw());
+    document.getElementById('auto-refill-btn').addEventListener('click', () => this.autoRefill());
+    document.getElementById('deposit-amount').addEventListener('input', () => this.validateInputs());
+    document.getElementById('withdraw-amount').addEventListener('input', () => this.validateInputs());
+    
+    // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม - แก้ไขไม่ให้ขัดขวางการไหลของเกม
+    const originalStartGame = this.pokerGame.startGame.bind(this.pokerGame);
+    this.pokerGame.startGame = () => {
         const userPlayer = this.pokerGame.players[0];
-        const tableChips = userPlayer.chips;
         
-        if (tableChips <= 0) {
-            this.addTransaction('❌ ไม่สามารถเริ่มเกมได้: ไม่มีชิพบนโต๊ะ');
-            this.showBankMessage('⚠️ กรุณาเติมชิพก่อนเริ่มเกม!', 'warning');
+        // ถ้าผู้เล่นไม่มีชิพ ให้เติมอัตโนมัติถ้ามีเงินในธนาคาร
+        if (userPlayer.chips <= 0 && this.bankBalance > 0) {
+            const refillAmount = Math.min(1500, this.bankBalance);
+            this.bankBalance -= refillAmount;
+            userPlayer.chips += refillAmount;
+            
+            this.addTransaction(`เติมชิพอัตโนมัติ: ${refillAmount} ชิป`);
+            this.showBankMessage(`✅ เติมชิพอัตโนมัติ ${refillAmount} ชิป`, 'success');
+            this.updateBankDisplay();
+        }
+        
+        // ถ้ายังไม่มีชิพและไม่มีเงินในธนาคาร
+        if (userPlayer.chips <= 0) {
+            this.showBankMessage('❌ ไม่มีชิพบนโต๊ะและเงินในธนาคารไม่พอ', 'error');
             return false;
         }
         
-        return true;
-    }
+        return originalStartGame();
+    };
+}
     
     // อัพเดทจำนวนชิพบนโต๊ะ
     updateTableChips() {
@@ -1747,6 +1750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
 
