@@ -653,64 +653,107 @@ nextPlayerTurn() {
         });
     }
     
-    makeAIDecision(player) {
-        console.log('🤖 AI decision for:', player.name);
+   // ⭐️ แก้ไข method makeAIDecision ให้มี fallback
+makeAIDecision(player) {
+    console.log(`🤖 AI ${player.name} making decision...`);
+    
+    // ⭐️ ตรวจสอบว่าเกมยังดำเนินอยู่
+    if (!this.gameStarted || this.gameOver) {
+        console.log('🚫 Game not active, AI cannot make decision');
+        return;
+    }
+    
+    try {
+        const handStrength = this.calculateHandStrength(player);
+        const positionFactor = this.calculatePositionFactor(player);
+        const potOdds = this.calculatePotOdds(player);
+        const bluffFactor = this.calculateBluffFactor(player);
         
-        try {
-            const handStrength = this.calculateHandStrength(player);
-            const positionFactor = this.calculatePositionFactor(player);
-            const potOdds = this.calculatePotOdds(player);
-            const bluffFactor = this.calculateBluffFactor(player);
-            
-            let decisionScore = handStrength * 0.5 + positionFactor * 0.2 + potOdds * 0.2 + bluffFactor * 0.1;
-            
-            if (player.personality === 'aggressive') {
-                decisionScore *= 1.2;
-            } else if (player.personality === 'conservative') {
-                decisionScore *= 0.8;
+        let decisionScore = handStrength * 0.5 + positionFactor * 0.2 + potOdds * 0.2 + bluffFactor * 0.1;
+        
+        if (player.personality === 'aggressive') {
+            decisionScore *= 1.2;
+        } else if (player.personality === 'conservative') {
+            decisionScore *= 0.8;
+        }
+        
+        console.log(`🤖 ${player.name} decision score: ${decisionScore.toFixed(2)}`);
+        
+        const callAmount = this.currentBet - player.currentBet;
+        const canCall = player.chips >= callAmount;
+        
+        if (decisionScore < 0.3) {
+            // Weak hand
+            if (callAmount > 0 && canCall) {
+                // มีเงินพอเรียกแต่มืออ่อน -> Fold
+                console.log(`🤖 ${player.name} decision: FOLD (weak hand)`);
+                this.playerFold(player);
+            } else if (callAmount === 0) {
+                // ไม่ต้องเรียก -> Check
+                console.log(`🤖 ${player.name} decision: CHECK (weak hand, no bet)`);
+                this.playerCheck(player);
+            } else {
+                // เงินไม่พอเรียก -> Fold
+                console.log(`🤖 ${player.name} decision: FOLD (weak hand, cannot call)`);
+                this.playerFold(player);
             }
-            
-            if (decisionScore < 0.3) {
-                if (player.currentBet < this.currentBet) {
-                    this.playerFold(player);
+        } else if (decisionScore < 0.6) {
+            // Medium hand
+            if (callAmount > 0 && canCall) {
+                // มีเงินพอเรียก -> Call
+                console.log(`🤖 ${player.name} decision: CALL (medium hand)`);
+                this.playerCall(player);
+            } else if (callAmount === 0) {
+                // ไม่ต้องเรียก -> Check หรือ Raise น้อยๆ
+                if (Math.random() < 0.3 && player.chips > 0) {
+                    const raiseAmount = Math.min(20, Math.floor(player.chips * 0.1));
+                    console.log(`🤖 ${player.name} decision: RAISE ${raiseAmount} (medium hand)`);
+                    this.playerRaise(player, raiseAmount);
                 } else {
-                    this.playerCheck(player);
-                }
-            } else if (decisionScore < 0.6) {
-                if (player.currentBet < this.currentBet) {
-                    this.playerCall(player);
-                } else {
+                    console.log(`🤖 ${player.name} decision: CHECK (medium hand)`);
                     this.playerCheck(player);
                 }
             } else {
-                if (player.currentBet < this.currentBet) {
-                    if (Math.random() < 0.7) {
-                        this.playerCall(player);
-                    } else {
-                        const raiseAmount = Math.min(
-                            Math.floor(handStrength * player.chips * 0.3),
-                            player.chips
-                        );
-                        this.playerRaise(player, Math.max(raiseAmount, this.currentBet + 10));
-                    }
-                } else {
-                    if (Math.random() < 0.8) {
-                        const raiseAmount = Math.min(
-                            Math.floor(handStrength * player.chips * 0.4),
-                            player.chips
-                        );
-                        this.playerRaise(player, Math.max(raiseAmount, 20));
-                    } else {
-                        this.playerCheck(player);
-                    }
-                }
+                // เงินไม่พอเรียก -> Fold
+                console.log(`🤖 ${player.name} decision: FOLD (medium hand, cannot call)`);
+                this.playerFold(player);
             }
-        } catch (error) {
-            console.error('❌ Error in AI decision:', error);
-            // ถ้า AI decision error ให้ fold อัตโนมัติ
-            this.playerFold(player);
+        } else {
+            // Strong hand
+            if (callAmount > 0 && canCall) {
+                // มีเงินพอเรียก -> Call หรือ Raise
+                if (Math.random() < 0.6 && player.chips > callAmount) {
+                    const raiseAmount = Math.min(
+                        Math.floor(handStrength * player.chips * 0.4),
+                        player.chips
+                    );
+                    console.log(`🤖 ${player.name} decision: RAISE ${raiseAmount} (strong hand)`);
+                    this.playerRaise(player, Math.max(raiseAmount, this.currentBet + 10));
+                } else {
+                    console.log(`🤖 ${player.name} decision: CALL (strong hand)`);
+                    this.playerCall(player);
+                }
+            } else if (callAmount === 0) {
+                // ไม่ต้องเรียก -> Raise
+                const raiseAmount = Math.min(
+                    Math.floor(handStrength * player.chips * 0.5),
+                    player.chips
+                );
+                console.log(`🤖 ${player.name} decision: RAISE ${raiseAmount} (strong hand, no bet)`);
+                this.playerRaise(player, Math.max(raiseAmount, 20));
+            } else {
+                // เงินไม่พอเรียก -> All-in
+                console.log(`🤖 ${player.name} decision: CALL (strong hand, all-in)`);
+                this.playerCall(player);
+            }
         }
+        
+    } catch (error) {
+        console.error(`❌ AI decision error for ${player.name}:`, error);
+        // ⭐️ Fallback: ถ้า AI decision error ให้ fold อัตโนมัติ
+        this.playerFold(player);
     }
+}
     
     calculateHandStrength(player) {
         const allCards = [...player.cards, ...this.communityCards];
@@ -1685,4 +1728,36 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('❌ Game initialization failed:', gameError);
     }
 });
+// ⭐️ เพิ่ม method สำหรับ debug AI state
+debugAIState() {
+    console.log('🐛 AI State Debug:');
+    this.players.forEach((player, index) => {
+        if (player.isAI) {
+            console.log(`AI ${index}: ${player.name}`);
+            console.log(`  - Chips: ${player.chips}`);
+            console.log(`  - Folded: ${player.isFolded}`);
+            console.log(`  - Eliminated: ${player.isEliminated}`);
+            console.log(`  - Current Bet: ${player.currentBet}`);
+            console.log(`  - Status: ${player.status}`);
+        }
+    });
+    console.log(`Current Bet: ${this.currentBet}`);
+    console.log(`Pot: ${this.pot}`);
+    console.log(`Game Phase: ${this.gamePhase}`);
+    console.log(`Current Player Index: ${this.currentPlayerIndex}`);
+}
+// ⭐️ เพิ่ม method สำหรับ force next turn (สำหรับ debug)
+forceNextTurn() {
+    console.log('🔧 Force next turn called');
+    if (this.isProcessingTurn) {
+        console.log('Resetting processing turn flag');
+        this.isProcessingTurn = false;
+    }
+    if (this.aiDecisionTimeout) {
+        console.log('Clearing AI timeout');
+        clearTimeout(this.aiDecisionTimeout);
+        this.aiDecisionTimeout = null;
+    }
+    this.nextPlayerTurn();
+}
 
