@@ -1323,71 +1323,111 @@ resetRound() {
     }
     
     // ตั้งค่า event listeners
-    initializeEventListeners() {
-        const startBtn = document.getElementById('start-btn');
-        const foldBtn = document.getElementById('fold-btn');
-        const checkBtn = document.getElementById('check-btn');
-        const callBtn = document.getElementById('call-btn');
-        const raiseBtn = document.getElementById('raise-btn');
-        const continueBtn = document.getElementById('continue-btn');
-        const betSlider = document.getElementById('bet-slider');
-        const resetBtn = document.getElementById('reset-btn');
-        
-        if (startBtn) {
-            startBtn.addEventListener('click', () => {
-                this.startGame();
-            });
-        }
-        
-        if (foldBtn) {
-            foldBtn.addEventListener('click', () => {
-                this.playerFold(this.players[this.currentPlayerIndex]);
-                this.disablePlayerActions();
-            });
-        }
-        
-        if (checkBtn) {
-            checkBtn.addEventListener('click', () => {
-                this.playerCheck(this.players[this.currentPlayerIndex]);
-                this.disablePlayerActions();
-            });
-        }
-        
-        if (callBtn) {
-            callBtn.addEventListener('click', () => {
-                this.playerCall(this.players[this.currentPlayerIndex]);
-                this.disablePlayerActions();
-            });
-        }
-        
-        if (raiseBtn) {
-            raiseBtn.addEventListener('click', () => {
-                const raiseAmount = parseInt(document.getElementById('bet-slider').value);
-                this.playerRaise(this.players[this.currentPlayerIndex], raiseAmount);
-                this.disablePlayerActions();
-            });
-        }
-        
-        if (continueBtn) {
-            continueBtn.addEventListener('click', () => {
-                this.continueGame();
-            });
-        }
-        
-        if (betSlider) {
-            betSlider.addEventListener('input', () => {
-                this.updateBetAmount();
-            });
-        }
-        
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                this.resetGame();
-            });
-        }
-        
-        console.log('Event listeners initialized');
+   initializeEventListeners() {
+    // ลบ event listeners เดิมก่อน (ถ้ามี)
+    this.removeEventListeners();
+    
+    const startBtn = document.getElementById('start-btn');
+    const foldBtn = document.getElementById('fold-btn');
+    const checkBtn = document.getElementById('check-btn');
+    const callBtn = document.getElementById('call-btn');
+    const raiseBtn = document.getElementById('raise-btn');
+    const continueBtn = document.getElementById('continue-btn');
+    const betSlider = document.getElementById('bet-slider');
+    const resetBtn = document.getElementById('reset-btn');
+    
+    // เก็บ reference ถึง event listeners สำหรับการลบในภายหลัง
+    this.eventListeners = [];
+    
+    if (startBtn) {
+        const startHandler = () => {
+            console.log('กดเริ่มเกม');
+            this.startGame();
+        };
+        startBtn.addEventListener('click', startHandler);
+        this.eventListeners.push({ element: startBtn, type: 'click', handler: startHandler });
     }
+    
+    if (foldBtn) {
+        const foldHandler = () => {
+            console.log('กด Fold');
+            this.playerFold(this.players[this.currentPlayerIndex]);
+            this.disablePlayerActions();
+        };
+        foldBtn.addEventListener('click', foldHandler);
+        this.eventListeners.push({ element: foldBtn, type: 'click', handler: foldHandler });
+    }
+    
+    if (checkBtn) {
+        const checkHandler = () => {
+            console.log('กด Check');
+            this.playerCheck(this.players[this.currentPlayerIndex]);
+            this.disablePlayerActions();
+        };
+        checkBtn.addEventListener('click', checkHandler);
+        this.eventListeners.push({ element: checkBtn, type: 'click', handler: checkHandler });
+    }
+    
+    if (callBtn) {
+        const callHandler = () => {
+            console.log('กด Call');
+            this.playerCall(this.players[this.currentPlayerIndex]);
+            this.disablePlayerActions();
+        };
+        callBtn.addEventListener('click', callHandler);
+        this.eventListeners.push({ element: callBtn, type: 'click', handler: callHandler });
+    }
+    
+    if (raiseBtn) {
+        const raiseHandler = () => {
+            const raiseAmount = parseInt(document.getElementById('bet-slider').value);
+            console.log('กด Raise:', raiseAmount);
+            this.playerRaise(this.players[this.currentPlayerIndex], raiseAmount);
+            this.disablePlayerActions();
+        };
+        raiseBtn.addEventListener('click', raiseHandler);
+        this.eventListeners.push({ element: raiseBtn, type: 'click', handler: raiseHandler });
+    }
+    
+    if (continueBtn) {
+        const continueHandler = () => {
+            console.log('กดเล่นต่อ');
+            this.continueGame();
+        };
+        continueBtn.addEventListener('click', continueHandler);
+        this.eventListeners.push({ element: continueBtn, type: 'click', handler: continueHandler });
+    }
+    
+    if (betSlider) {
+        const sliderHandler = () => {
+            this.updateBetAmount();
+        };
+        betSlider.addEventListener('input', sliderHandler);
+        this.eventListeners.push({ element: betSlider, type: 'input', handler: sliderHandler });
+    }
+    
+    if (resetBtn) {
+        const resetHandler = () => {
+            console.log('กดรีเซ็ตเกม');
+            this.resetGame();
+        };
+        resetBtn.addEventListener('click', resetHandler);
+        this.eventListeners.push({ element: resetBtn, type: 'click', handler: resetHandler });
+    }
+    
+    console.log('Event listeners initialized, จำนวน:', this.eventListeners.length);
+}
+
+// เพิ่ม method สำหรับลบ event listeners
+removeEventListeners() {
+    if (this.eventListeners && this.eventListeners.length > 0) {
+        console.log('ลบ event listeners เก่าจำนวน:', this.eventListeners.length);
+        this.eventListeners.forEach(({ element, type, handler }) => {
+            element.removeEventListener(type, handler);
+        });
+        this.eventListeners = [];
+    }
+}
     // ในคลาส TexasHoldemGame เพิ่ม method ต่อไปนี้:
 
 // แสดง overlay ผู้ชนะ
@@ -1750,6 +1790,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
 
