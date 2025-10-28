@@ -7,6 +7,52 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- เพิ่มส่วนนี้ใน sidebar ก่อนส่วน log-container -->
+<div class="bank-container">
+    <div class="bank-panel">
+        <div class="bank-header">ระบบธานาคาร</div>
+        
+        <div class="bank-balance">
+            <div class="balance-label">เงินในธนาคาร:</div>
+            <div class="balance-amount" id="bank-balance">2000</div>
+            <div class="balance-unit">ชิป</div>
+        </div>
+
+        <div class="bank-passive-income">
+            <div class="passive-label">รายได้ทุก 5 นาที:</div>
+            <div class="passive-timer" id="passive-timer">05:00</div>
+            <div class="passive-amount">+500 ชิป</div>
+        </div>
+
+        <div class="bank-actions">
+            <div class="action-group">
+                <label for="deposit-amount">ฝากเงิน:</label>
+                <input type="number" id="deposit-amount" min="1" max="2000" value="100">
+                <button id="deposit-btn" class="bank-btn deposit">ฝาก</button>
+            </div>
+            
+            <div class="action-group">
+                <label for="withdraw-amount">ถอนเงิน:</label>
+                <input type="number" id="withdraw-amount" min="1" max="1500" value="100">
+                <button id="withdraw-btn" class="bank-btn withdraw">ถอน</button>
+            </div>
+        </div>
+
+        <div class="bank-table-check">
+            <div class="table-status" id="table-status">
+                💰 ชิพบนโต๊ะ: <span id="table-chips">1500</span> ชิป
+            </div>
+            <button id="auto-refill-btn" class="bank-btn refill">เติมชิพอัตโนมัติ</button>
+        </div>
+
+        <div class="bank-transaction">
+            <div class="transaction-label">ประวัติธุรกรรม:</div>
+            <div class="transaction-list" id="transaction-list">
+                <div class="transaction-item">เริ่มต้น: เงิน 2000 ชิป</div>
+            </div>
+        </div>
+    </div>
+</div>
     <div class="container">
         <header>
             <h1>Sabay Poker</h1>
@@ -152,4 +198,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>
