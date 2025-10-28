@@ -1453,4 +1453,279 @@ endRound() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing game...');
     window.pokerGame = new TexasHoldemGame();
+
+});
+// คลาสระบบธานาคาร
+class BankSystem {
+    constructor(pokerGame) {
+        this.pokerGame = pokerGame;
+        this.bankBalance = 2000; // เงินเริ่มต้นในธนาคาร
+        this.passiveIncomeInterval = null;
+        this.passiveIncomeTimeLeft = 300; // 5 นาทีในวินาที (300 วินาที)
+        this.transactions = ['เริ่มต้น: เงิน 2000 ชิป'];
+        
+        this.initializeBankUI();
+        this.startPassiveIncomeTimer();
+        this.updateBankDisplay();
+    }
+    
+    // เริ่มต้น UI ธนาคาร
+    initializeBankUI() {
+        // อัพเดทจำนวนชิพบนโต๊ะ
+        this.updateTableChips();
+        
+        // Event Listeners
+        document.getElementById('deposit-btn').addEventListener('click', () => this.deposit());
+        document.getElementById('withdraw-btn').addEventListener('click', () => this.withdraw());
+        document.getElementById('auto-refill-btn').addEventListener('click', () => this.autoRefill());
+        document.getElementById('deposit-amount').addEventListener('input', () => this.validateInputs());
+        document.getElementById('withdraw-amount').addEventListener('input', () => this.validateInputs());
+        
+        // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม
+        const originalStartGame = this.pokerGame.startGame.bind(this.pokerGame);
+        this.pokerGame.startGame = () => {
+            if (this.checkTableChips()) {
+                originalStartGame();
+            }
+        };
+    }
+    
+    // ตรวจสอบชิพบนโต๊ะก่อนเริ่มเกม
+    checkTableChips() {
+        const userPlayer = this.pokerGame.players[0];
+        const tableChips = userPlayer.chips;
+        
+        if (tableChips <= 0) {
+            this.addTransaction('❌ ไม่สามารถเริ่มเกมได้: ไม่มีชิพบนโต๊ะ');
+            this.showBankMessage('⚠️ กรุณาเติมชิพก่อนเริ่มเกม!', 'warning');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // อัพเดทจำนวนชิพบนโต๊ะ
+    updateTableChips() {
+        const userPlayer = this.pokerGame.players[0];
+        const tableChipsElement = document.getElementById('table-chips');
+        if (tableChipsElement) {
+            tableChipsElement.textContent = userPlayer.chips;
+        }
+    }
+    
+    // ฝากเงิน
+    deposit() {
+        const amount = parseInt(document.getElementById('deposit-amount').value);
+        const userPlayer = this.pokerGame.players[0];
+        
+        if (isNaN(amount) || amount <= 0) {
+            this.showBankMessage('⚠️ กรุณากรอกจำนวนเงินที่ต้องการฝาก', 'error');
+            return;
+        }
+        
+        if (amount > userPlayer.chips) {
+            this.showBankMessage('❌ ไม่มีชิพบนโต๊ะพอสำหรับฝาก', 'error');
+            return;
+        }
+        
+        // โอนเงินจากโต๊ะไปธนาคาร
+        userPlayer.chips -= amount;
+        this.bankBalance += amount;
+        
+        this.addTransaction(`ฝากเงิน: ${amount} ชิป (โต๊ะ → ธนาคาร)`);
+        this.showBankMessage(`✅ ฝากเงิน ${amount} ชิปเรียบร้อย`, 'success');
+        
+        this.updateBankDisplay();
+        this.pokerGame.updateUI();
+    }
+    
+    // ถอนเงิน
+    withdraw() {
+        const amount = parseInt(document.getElementById('withdraw-amount').value);
+        const userPlayer = this.pokerGame.players[0];
+        
+        if (isNaN(amount) || amount <= 0) {
+            this.showBankMessage('⚠️ กรุณากรอกจำนวนเงินที่ต้องการถอน', 'error');
+            return;
+        }
+        
+        if (amount > this.bankBalance) {
+            this.showBankMessage('❌ ยอดเงินในธนาคารไม่เพียงพอ', 'error');
+            return;
+        }
+        
+        // โอนเงินจากธนาคารไปโต๊ะ
+        this.bankBalance -= amount;
+        userPlayer.chips += amount;
+        
+        this.addTransaction(`ถอนเงิน: ${amount} ชิป (ธนาคาร → โต๊ะ)`);
+        this.showBankMessage(`✅ ถอนเงิน ${amount} ชิปเรียบร้อย`, 'success');
+        
+        this.updateBankDisplay();
+        this.pokerGame.updateUI();
+    }
+    
+    // เติมชิพอัตโนมัติ
+    autoRefill() {
+        const userPlayer = this.pokerGame.players[0];
+        const neededChips = 1500 - userPlayer.chips; // เติมให้เต็ม 1500
+        
+        if (neededChips <= 0) {
+            this.showBankMessage('ℹ️ มีชิพบนโต๊ะเพียงพอแล้ว', 'info');
+            return;
+        }
+        
+        if (neededChips > this.bankBalance) {
+            this.showBankMessage('❌ ยอดเงินในธนาคารไม่เพียงพอสำหรับเติมชิพ', 'error');
+            return;
+        }
+        
+        // เติมชิพอัตโนมัติ
+        this.bankBalance -= neededChips;
+        userPlayer.chips += neededChips;
+        
+        this.addTransaction(`เติมชิพอัตโนมัติ: ${neededChips} ชิป`);
+        this.showBankMessage(`✅ เติมชิพ ${neededChips} ชิปเรียบร้อย`, 'success');
+        
+        this.updateBankDisplay();
+        this.pokerGame.updateUI();
+    }
+    
+    // ตรวจสอบความถูกต้องของ input
+    validateInputs() {
+        const depositAmount = parseInt(document.getElementById('deposit-amount').value);
+        const withdrawAmount = parseInt(document.getElementById('withdraw-amount').value);
+        const userPlayer = this.pokerGame.players[0];
+        
+        // กำหนดค่าสูงสุดสำหรับ input
+        document.getElementById('deposit-amount').max = userPlayer.chips;
+        document.getElementById('withdraw-amount').max = this.bankBalance;
+        
+        // ปิดปุ่มถ้ามีค่าไม่ถูกต้อง
+        document.getElementById('deposit-btn').disabled = 
+            isNaN(depositAmount) || depositAmount <= 0 || depositAmount > userPlayer.chips;
+        
+        document.getElementById('withdraw-btn').disabled = 
+            isNaN(withdrawAmount) || withdrawAmount <= 0 || withdrawAmount > this.bankBalance;
+    }
+    
+    // เริ่มนาฬิการายได้ passive
+    startPassiveIncomeTimer() {
+        this.updatePassiveTimerDisplay();
+        
+        this.passiveIncomeInterval = setInterval(() => {
+            this.passiveIncomeTimeLeft--;
+            
+            if (this.passiveIncomeTimeLeft <= 0) {
+                this.givePassiveIncome();
+                this.passiveIncomeTimeLeft = 300; // รีเซ็ตเป็น 5 นาที
+            }
+            
+            this.updatePassiveTimerDisplay();
+        }, 1000);
+    }
+    
+    // ให้รายได้ passive
+    givePassiveIncome() {
+        this.bankBalance += 500;
+        this.addTransaction(`รายได้ passive: +500 ชิป`);
+        this.showBankMessage('💰 ได้รับรายได้ passive 500 ชิป!', 'success');
+        this.updateBankDisplay();
+    }
+    
+    // อัพเดทการแสดงผลนาฬิกา
+    updatePassiveTimerDisplay() {
+        const minutes = Math.floor(this.passiveIncomeTimeLeft / 60);
+        const seconds = this.passiveIncomeTimeLeft % 60;
+        const timerElement = document.getElementById('passive-timer');
+        
+        if (timerElement) {
+            timerElement.textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+    
+    // อัพเดทการแสดงผลทั้งหมด
+    updateBankDisplay() {
+        // อัพเดทยอดเงินธนาคาร
+        const balanceElement = document.getElementById('bank-balance');
+        if (balanceElement) {
+            balanceElement.textContent = this.bankBalance;
+        }
+        
+        // อัพเดทชิพบนโต๊ะ
+        this.updateTableChips();
+        
+        // อัพเดทประวัติธุรกรรม
+        this.updateTransactionList();
+        
+        // ตรวจสอบ input
+        this.validateInputs();
+    }
+    
+    // อัพเดทรายการธุรกรรม
+    updateTransactionList() {
+        const transactionList = document.getElementById('transaction-list');
+        if (transactionList) {
+            transactionList.innerHTML = '';
+            this.transactions.slice(-5).forEach(transaction => {
+                const item = document.createElement('div');
+                item.className = 'transaction-item';
+                item.textContent = transaction;
+                transactionList.appendChild(item);
+            });
+        }
+    }
+    
+    // เพิ่มธุรกรรมใหม่
+    addTransaction(message) {
+        const timestamp = new Date().toLocaleTimeString('th-TH', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        this.transactions.push(`[${timestamp}] ${message}`);
+        
+        if (this.transactions.length > 10) {
+            this.transactions.shift(); // จำกัดจำนวนรายการ
+        }
+        
+        this.updateTransactionList();
+    }
+    
+    // แสดงข้อความธนาคาร
+    showBankMessage(message, type = 'info') {
+        // ใช้ระบบ log ของเกมเดิม
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+        
+        let styledMessage = message;
+        if (type === 'success') {
+            styledMessage = `<span style="color: #90EE90">${message}</span>`;
+        } else if (type === 'error') {
+            styledMessage = `<span style="color: #ff6b6b">${message}</span>`;
+        } else if (type === 'warning') {
+            styledMessage = `<span style="color: #ffd700">${message}</span>`;
+        }
+        
+        this.pokerGame.addLogEntry(styledMessage);
+    }
+    
+    // ทำลายระบบ (สำหรับ cleanup)
+    destroy() {
+        if (this.passiveIncomeInterval) {
+            clearInterval(this.passiveIncomeInterval);
+        }
+    }
+}
+
+// แก้ไขการเริ่มต้นเกมเพื่อเพิ่มระบบธนาคาร
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing game...');
+    window.pokerGame = new TexasHoldemGame();
+    
+    // เพิ่มระบบธนาคารหลังจากเกมโหลดเสร็จ
+    setTimeout(() => {
+        window.bankSystem = new BankSystem(window.pokerGame);
+        console.log('Bank system initialized');
+    }, 1000);
 });
