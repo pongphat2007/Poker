@@ -429,44 +429,49 @@ class TexasHoldemGame {
     }
     
     // แจกไพ่กองกลาง
-    dealCommunityCards(count) {
-        this.addLogEntry('กำลังแจกไพ่กองกลาง...');
-        
-        for (let i = 0; i < count; i++) {
-            setTimeout(() => {
-                if (this.deck.length === 0) {
-                    console.error('ไพ่ใน deck หมดแล้ว');
-                    this.initializeDeck();
-                    this.shuffleDeck();
-                }
-                
-                const card = this.deck.pop();
-                this.communityCards.push(card);
-                this.addCommunityCard(card);
-                
-                if (this.communityCards.length === 3) {
-                    this.addLogEntry('แจกไพ่ Flop เรียบร้อยแล้ว');
-                    this.gamePhase = 'flop';
-                } else if (this.communityCards.length === 4) {
-                    this.addLogEntry('แจกไพ่ Turn เรียบร้อยแล้ว');
-                    this.gamePhase = 'turn';
-                } else if (this.communityCards.length === 5) {
-                    this.addLogEntry('แจกไพ่ River เรียบร้อยแล้ว');
-                    this.gamePhase = 'river';
-                }
-                
-                // อัพเดทแต้มมือผู้เล่น
-                this.updateAllPlayerHandRanks();
-                
-                this.updateUI();
-            }, i * 1500);
-        }
-        
+   dealCommunityCards(count) {
+    console.log('กำลังแจกไพ่กองกลาง ' + count + ' ใบ, เฟสปัจจุบัน: ' + this.gamePhase);
+    this.addLogEntry('กำลังแจกไพ่กองกลาง...');
+    
+    for (let i = 0; i < count; i++) {
         setTimeout(() => {
-            this.startBettingRound();
-        }, count * 1500 + 500);
+            if (this.deck.length === 0) {
+                console.error('ไพ่ใน deck หมดแล้ว');
+                this.initializeDeck();
+                this.shuffleDeck();
+            }
+            
+            const card = this.deck.pop();
+            this.communityCards.push(card);
+            this.addCommunityCard(card);
+            
+            console.log('แจกไพ่กองกลางใบที่ ' + (i+1) + ': ', card);
+            
+            // อัพเดทเฟสเกมตามจำนวนไพ่กองกลาง
+            if (this.communityCards.length === 3) {
+                this.addLogEntry('แจกไพ่ Flop เรียบร้อยแล้ว');
+                this.gamePhase = 'flop';
+            } else if (this.communityCards.length === 4) {
+                this.addLogEntry('แจกไพ่ Turn เรียบร้อยแล้ว');
+                this.gamePhase = 'turn';
+            } else if (this.communityCards.length === 5) {
+                this.addLogEntry('แจกไพ่ River เรียบร้อยแล้ว');
+                this.gamePhase = 'river';
+            }
+            
+            // อัพเดทแต้มมือผู้เล่น
+            this.updateAllPlayerHandRanks();
+            
+            this.updateUI();
+        }, i * 1000); // ลดเวลาเหลือ 1 วินาทีต่อใบ
     }
     
+    // เริ่มรอบการเดิมพันถัดไปหลังจากแจกไพ่เสร็จ
+    setTimeout(() => {
+        console.log('แจกไพ่กองกลางเสร็จ เริ่มรอบการเดิมพันเฟส: ' + this.gamePhase);
+        this.startBettingRound();
+    }, count * 1000 + 500);
+}
     // อัพเดทแต้มมือผู้เล่นทั้งหมด
     updateAllPlayerHandRanks() {
         this.players.forEach(player => {
@@ -1729,6 +1734,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
 
