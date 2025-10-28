@@ -932,4 +932,244 @@ button, .card {
             -1px 1px 0 #006400;
     }
 
+
+}
+/* สไตล์ระบบธนาคาร */
+.bank-container {
+    margin-bottom: 15px;
+}
+
+.bank-panel {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.bank-header {
+    font-size: 1.3rem;
+    font-weight: bold;
+    text-align: center;
+    color: #ffd700;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bank-balance {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 215, 0, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.balance-label {
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.balance-amount {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.balance-unit {
+    color: #ccc;
+    font-size: 0.9rem;
+}
+
+.bank-passive-income {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: rgba(0, 100, 0, 0.2);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.passive-label {
+    grid-column: 1 / -1;
+    font-weight: bold;
+    color: #90EE90;
+    text-align: center;
+}
+
+.passive-timer {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #90EE90;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.passive-amount {
+    color: #90EE90;
+    text-align: center;
+    font-weight: bold;
+}
+
+.bank-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.action-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.action-group label {
+    color: #ccc;
+    font-size: 0.9rem;
+    min-width: 60px;
+}
+
+.action-group input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.9rem;
+}
+
+.bank-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 60px;
+}
+
+.bank-btn.deposit {
+    background: linear-gradient(145deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.bank-btn.withdraw {
+    background: linear-gradient(145deg, #f44336, #da190b);
+    color: white;
+}
+
+.bank-btn.refill {
+    background: linear-gradient(145deg, #2196F3, #0b7dda);
+    color: white;
+    width: 100%;
+    padding: 8px;
+}
+
+.bank-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.bank-btn:active {
+    transform: translateY(0);
+}
+
+.bank-btn:disabled {
+    background: #666;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.bank-table-check {
+    background: rgba(30, 30, 70, 0.3);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(100, 100, 255, 0.3);
+}
+
+.table-status {
+    text-align: center;
+    color: #90EE90;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.bank-transaction {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.transaction-label {
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.transaction-list {
+    max-height: 120px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+}
+
+.transaction-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.transaction-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.transaction-list::-webkit-scrollbar-thumb {
+    background: #ffd700;
+    border-radius: 2px;
+}
+
+.transaction-item {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ccc;
+}
+
+.transaction-item:last-child {
+    border-bottom: none;
+}
+
+/* Responsive Design สำหรับธนาคาร */
+@media (max-width: 768px) {
+    .bank-actions {
+        flex-direction: column;
+    }
+    
+    .action-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .action-group label {
+        text-align: center;
+    }
+    
+    .bank-balance {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .bank-passive-income {
+        grid-template-columns: 1fr;
+    }
 }
