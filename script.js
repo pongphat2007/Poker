@@ -193,9 +193,18 @@ class TexasHoldemGame {
 
     // เล่นต่อหลังจากจบรอบ
     continueGame() {
-        if (!this.roundCompleted) return;
-        this.startGame();
+    console.log('กดเล่นต่อ, รอบที่แล้วจบแล้ว?: ' + this.roundCompleted);
+    
+    if (!this.roundCompleted) {
+        console.log('รอบยังไม่จบ ไม่สามารถเล่นต่อได้');
+        return;
     }
+    
+    // ซ่อนปุ่มเล่นต่อก่อนเริ่มเกมใหม่
+    document.getElementById('continue-btn').style.display = 'none';
+    
+    this.startGame();
+}
     
     // กำหนดเจ้ามือ (แก้ไขแล้ว)
     determineDealer() {
@@ -1734,6 +1743,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
 
 
