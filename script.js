@@ -131,59 +131,65 @@ class TexasHoldemGame {
     }
     
     // เริ่มเกมใหม่ (แก้ไขแล้ว - อัพเดทไพ่ผู้เล่นที่ถูกคัดออก)
-    startGame() {
-        console.log('เริ่มเกมใหม่');
-        if (this.gameStarted && !this.roundCompleted) return;
-        
-        this.resetRound();
-        this.shuffleDeck();
-        this.determineDealer();
-        
-        // ตรวจสอบและคัดออกผู้เล่นที่เงินหมด (ก่อนโพสต์บลัฟ)
-        const gameEnded = this.eliminateBrokePlayers();
-        if (gameEnded) {
-            console.log('เกมจบแล้ว ไม่เริ่มตาใหม่');
-            return; // ถ้าเกมจบแล้ว就不再ดำเนินต่อ
-        }
-        
-        // ⭐️ อัพเดทการแสดงไพ่ให้ผู้เล่นทุกคน (ทำให้ผู้เล่นที่ถูกคัดออกแสดงไพ่คว่ำ)
-        this.players.forEach(player => {
-            this.updatePlayerCards(player);
-        });
-        
-        // ตรวจสอบว่ายังมีผู้เล่นพอที่จะเล่นต่อหรือไม่
-        const activePlayers = this.players.filter(player => !player.isEliminated);
-        if (activePlayers.length < 2) {
-            console.log('ผู้เล่นไม่พอ 2 คน ไม่สามารถเริ่มเกมได้');
-            if (activePlayers.length === 1) {
-                const winner = activePlayers[0];
-                this.addLogEntry('<strong style="color: #ffd700; font-size: 1.2em;">' + winner.name + ' ชนะเกม!</strong>');
-            }
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('continue-btn').style.display = 'none';
-            return;
-        }
-        
-        this.postBlinds();
-        this.dealHoleCards();
-        this.gameStarted = true;
-        this.gameOver = false;
-        this.roundCompleted = false;
-        this.showAICards = false;
-        
-        this.updateUI();
-        
-        document.getElementById('start-btn').disabled = true;
-        document.getElementById('continue-btn').style.display = 'none';
-        
-        this.addLogEntry('เริ่มเกมใหม่! เจ้ามือ: ' + this.players[this.dealerIndex].name);
-        console.log('เริ่มตาใหม่กับผู้เล่น:', activePlayers.map(p => p.name));
-        
-        // เริ่มรอบการเดิมพัน preflop
-        setTimeout(() => {
-            this.startBettingRound();
-        }, 2000);
+   startGame() {
+    console.log('เริ่มเกมใหม่');
+    
+    // ถ้ายังเล่นตาเดิมอยู่ ไม่ต้องเริ่มใหม่
+    if (this.gameStarted && !this.roundCompleted) {
+        console.log('ยังเล่นตาเดิมอยู่ ไม่เริ่มใหม่');
+        return;
     }
+    
+    // รีเซ็ตเฉพาะรอบปัจจุบัน
+    this.resetRound();
+    this.shuffleDeck();
+    this.determineDealer();
+    
+    // ตรวจสอบและคัดออกผู้เล่นที่เงินหมด
+    const gameEnded = this.eliminateBrokePlayers();
+    if (gameEnded) {
+        console.log('เกมจบแล้ว ไม่เริ่มตาใหม่');
+        return;
+    }
+    
+    // อัพเดทการแสดงไพ่ให้ผู้เล่นทุกคน
+    this.players.forEach(player => {
+        this.updatePlayerCards(player);
+    });
+    
+    // ตรวจสอบว่ายังมีผู้เล่นพอที่จะเล่นต่อหรือไม่
+    const activePlayers = this.players.filter(player => !player.isEliminated);
+    if (activePlayers.length < 2) {
+        console.log('ผู้เล่นไม่พอ 2 คน ไม่สามารถเริ่มเกมได้');
+        if (activePlayers.length === 1) {
+            const winner = activePlayers[0];
+            this.addLogEntry('<strong style="color: #ffd700; font-size: 1.2em;">' + winner.name + ' ชนะเกม!</strong>');
+        }
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('continue-btn').style.display = 'none';
+        return;
+    }
+    
+    this.postBlinds();
+    this.dealHoleCards();
+    this.gameStarted = true;
+    this.gameOver = false;
+    this.roundCompleted = false;
+    this.showAICards = false;
+    
+    this.updateUI();
+    
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('continue-btn').style.display = 'none';
+    
+    this.addLogEntry('เริ่มเกมใหม่! เจ้ามือ: ' + this.players[this.dealerIndex].name);
+    console.log('เริ่มตาใหม่กับผู้เล่น:', activePlayers.map(p => p.name));
+    
+    // เริ่มรอบการเดิมพัน preflop
+    setTimeout(() => {
+        this.startBettingRound();
+    }, 2000);
+}
 
     // เล่นต่อหลังจากจบรอบ
     continueGame() {
@@ -1729,4 +1735,5 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
 
