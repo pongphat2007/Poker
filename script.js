@@ -422,17 +422,10 @@ class TexasHoldemGame {
         this.updateUI();
     }
     
-    // แจกไพ่กองกลาง (แก้ไขแล้ว - แก้ปัญหาจั่วทีละ 2 ใบ)
+    // แจกไพ่กองกลาง
     dealCommunityCards(count) {
         this.addLogEntry('กำลังแจกไพ่กองกลาง...');
         
-        // ล้างไพ่กองกลางเก่าออกจาก DOM ก่อนแจกใหม่
-        const communityContainer = document.getElementById('community-cards');
-        if (communityContainer) {
-            communityContainer.innerHTML = '';
-        }
-        
-        // ⭐️ แก้ไข: จั่วไพ่เฉพาะจำนวนที่ต้องการ (count) เท่านั้น
         for (let i = 0; i < count; i++) {
             setTimeout(() => {
                 if (this.deck.length === 0) {
@@ -441,7 +434,6 @@ class TexasHoldemGame {
                     this.shuffleDeck();
                 }
                 
-                // ⭐️ แก้ไข: จั่วไพ่เพียง 1 ใบต่อรอบ
                 const card = this.deck.pop();
                 this.communityCards.push(card);
                 this.addCommunityCard(card);
@@ -927,11 +919,7 @@ class TexasHoldemGame {
     distributePot(winners) {
         if (winners.length === 1) {
             winners[0].chips += this.pot;
-            const winMessage = winners[0].name + ' ชนะเงินกองกลาง ' + this.pot + ' ด้วย ' + winners[0].handRank + '!';
-            this.addLogEntry('<strong>' + winMessage + '</strong>');
-            
-            // แสดง overlay ผู้ชนะ
-            this.showWinnerOverlay(winners[0].name, this.pot);
+            this.addLogEntry('<strong>' + winners[0].name + ' ชนะเงินกองกลาง ' + this.pot + ' ด้วย ' + winners[0].handRank + '!</strong>');
         } else {
             const splitAmount = Math.floor(this.pot / winners.length);
             const winnerNames = winners.map(w => w.name).join(' และ ');
@@ -939,11 +927,6 @@ class TexasHoldemGame {
                 winner.chips += splitAmount;
             });
             this.addLogEntry(`<strong>เสมอ! ${winnerNames} แบ่งเงินกองกลาง คนละ ${splitAmount}</strong>`);
-            
-            // สำหรับกรณีเสมอ อาจจะไม่แสดง overlay หรือแสดงแบบพิเศษ
-            if (winners.some(winner => winner.id === 'player-user')) {
-                this.showWinnerOverlay('คุณ (เสมอ)', splitAmount);
-            }
         }
         this.pot = 0;
     }
@@ -953,11 +936,7 @@ class TexasHoldemGame {
         const winner = this.players.find(player => !player.isEliminated && !player.isFolded);
         if (winner) {
             winner.chips += this.pot;
-            const winMessage = winner.name + ' ชนะเงินกองกลาง ' + this.pot + '!';
-            this.addLogEntry('<strong>' + winMessage + '</strong>');
-            
-            // แสดง overlay ผู้ชนะ
-            this.showWinnerOverlay(winner.name, this.pot);
+            this.addLogEntry('<strong>' + winner.name + ' ชนะเงินกองกลาง ' + this.pot + '!</strong>');
             this.pot = 0;
         }
         
@@ -1391,36 +1370,91 @@ class TexasHoldemGame {
         
         console.log('Event listeners initialized');
     }
+    // ในคลาส TexasHoldemGame เพิ่ม method ต่อไปนี้:
 
-    // แสดง overlay ผู้ชนะ
-    showWinnerOverlay(winnerName, chipsWon) {
-        const overlay = document.getElementById('winner-overlay');
-        const winnerNameElement = document.getElementById('winner-name');
-        const chipsWonElement = document.getElementById('chips-won-amount');
+// แสดง overlay ผู้ชนะ
+showWinnerOverlay(winnerName, chipsWon) {
+    const overlay = document.getElementById('winner-overlay');
+    const winnerNameElement = document.getElementById('winner-name');
+    const chipsWonElement = document.getElementById('chips-won-amount');
+    
+    if (overlay && winnerNameElement && chipsWonElement) {
+        winnerNameElement.textContent = winnerName;
+        chipsWonElement.textContent = chipsWon;
+        overlay.style.display = 'flex';
         
-        if (overlay && winnerNameElement && chipsWonElement) {
-            winnerNameElement.textContent = winnerName;
-            chipsWonElement.textContent = chipsWon;
-            overlay.style.display = 'flex';
-            
-            // เพิ่ม event listener สำหรับคลิกเพื่อปิด overlay
-            const clickHandler = () => {
-                this.hideWinnerOverlay();
-                overlay.removeEventListener('click', clickHandler);
-            };
-            overlay.addEventListener('click', clickHandler);
-        }
-    }
-
-    // ซ่อน overlay ผู้ชนะ
-    hideWinnerOverlay() {
-        const overlay = document.getElementById('winner-overlay');
-        if (overlay) {
-            overlay.style.display = 'none';
-        }
+        // เพิ่ม event listener สำหรับคลิกเพื่อปิด overlay
+        const clickHandler = () => {
+            this.hideWinnerOverlay();
+            overlay.removeEventListener('click', clickHandler);
+        };
+        overlay.addEventListener('click', clickHandler);
     }
 }
 
+// ซ่อน overlay ผู้ชนะ
+hideWinnerOverlay() {
+    const overlay = document.getElementById('winner-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// ใน method distributePot แก้ไขให้เรียกแสดง overlay
+distributePot(winners) {
+    if (winners.length === 1) {
+        winners[0].chips += this.pot;
+        const winMessage = winners[0].name + ' ชนะเงินกองกลาง ' + this.pot + ' ด้วย ' + winners[0].handRank + '!';
+        this.addLogEntry('<strong>' + winMessage + '</strong>');
+        
+        // แสดง overlay ผู้ชนะ
+        this.showWinnerOverlay(winners[0].name, this.pot);
+    } else {
+        const splitAmount = Math.floor(this.pot / winners.length);
+        const winnerNames = winners.map(w => w.name).join(' และ ');
+        winners.forEach(winner => {
+            winner.chips += splitAmount;
+        });
+        this.addLogEntry(`<strong>เสมอ! ${winnerNames} แบ่งเงินกองกลาง คนละ ${splitAmount}</strong>`);
+        
+        // สำหรับกรณีเสมอ อาจจะไม่แสดง overlay หรือแสดงแบบพิเศษ
+        if (winners.some(winner => winner.id === 'player-user')) {
+            this.showWinnerOverlay('คุณ (เสมอ)', splitAmount);
+        }
+    }
+    this.pot = 0;
+}
+
+// ใน method endRound แก้ไขให้เรียกแสดง overlay
+endRound() {
+    const winner = this.players.find(player => !player.isEliminated && !player.isFolded);
+    if (winner) {
+        winner.chips += this.pot;
+        const winMessage = winner.name + ' ชนะเงินกองกลาง ' + this.pot + '!';
+        this.addLogEntry('<strong>' + winMessage + '</strong>');
+        
+        // แสดง overlay ผู้ชนะ
+        this.showWinnerOverlay(winner.name, this.pot);
+        this.pot = 0;
+    }
+    
+    this.revealAICards();
+    
+    this.roundCompleted = true;
+    this.updateUI();
+    
+    document.getElementById('continue-btn').style.display = 'block';
+    
+    this.checkGameEnd();
+}
+}
+
+// เริ่มเกมเมื่อหน้าเว็บโหลดเสร็จ
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing game...');
+    window.pokerGame = new TexasHoldemGame();
+
+});
 // คลาสระบบธานาคาร
 class BankSystem {
     constructor(pokerGame) {
@@ -1684,7 +1718,7 @@ class BankSystem {
     }
 }
 
-// เริ่มเกมเมื่อหน้าเว็บโหลดเสร็จ
+// แก้ไขการเริ่มต้นเกมเพื่อเพิ่มระบบธนาคาร
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing game...');
     window.pokerGame = new TexasHoldemGame();
@@ -1695,3 +1729,4 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Bank system initialized');
     }, 1000);
 });
+
