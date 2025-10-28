@@ -79,15 +79,19 @@ class TexasHoldemGame {
         this.roundCompleted = false;
         this.showAICards = false;
         
+        // ⭐️ เพิ่ม flag สำหรับป้องกันปัญหาการเบิ้ล
+        this.isStartingGame = false;
+        this.isProcessingTurn = false;
+        this.isDealingCards = false;
+        this.aiDecisionTimeout = null;
+        
         this.initializeEventListeners();
         this.initializeDeck();
-        console.log('Texas Holdem Game initialized');
+        console.log('Texas Holdem Game initialized - Anti-Bug Mode');
         
-        // เพิ่มการตรวจสอบ element ที่สำคัญ
         this.checkRequiredElements();
     }
     
-    // เพิ่ม method ตรวจสอบ element
     checkRequiredElements() {
         const requiredElements = [
             'community-cards',
@@ -103,7 +107,6 @@ class TexasHoldemGame {
         });
     }
     
-    // สร้างสำรับไพ่
     initializeDeck() {
         const suits = ['♥', '♦', '♣', '♠'];
         const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -117,103 +120,108 @@ class TexasHoldemGame {
                 });
             }
         }
-        console.log('สร้างสำรับไพ่เรียบร้อย:', this.deck.length, 'ใบ');
     }
     
-    // สับไพ่
     shuffleDeck() {
-        console.log('กำลังสับไพ่...');
         for (let i = this.deck.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
         }
-        console.log('สับไพ่เรียบร้อย');
     }
     
-    // เริ่มเกมใหม่ (แก้ไขแล้ว - อัพเดทไพ่ผู้เล่นที่ถูกคัดออก)
+    // ⭐️ แก้ไข: ป้องกันการเบิ้ลในการเริ่มเกม
     startGame() {
-        console.log('เริ่มเกมใหม่');
-        if (this.gameStarted && !this.roundCompleted) return;
+        console.log('🔧 startGame called - isStartingGame:', this.isStartingGame);
         
-        this.resetRound();
-        this.shuffleDeck();
-        this.determineDealer();
-        
-        // ตรวจสอบและคัดออกผู้เล่นที่เงินหมด (ก่อนโพสต์บลัฟ)
-        const gameEnded = this.eliminateBrokePlayers();
-        if (gameEnded) {
-            console.log('เกมจบแล้ว ไม่เริ่มตาใหม่');
-            return; // ถ้าเกมจบแล้ว就不再ดำเนินต่อ
-        }
-        
-        // ⭐️ อัพเดทการแสดงไพ่ให้ผู้เล่นทุกคน (ทำให้ผู้เล่นที่ถูกคัดออกแสดงไพ่คว่ำ)
-        this.players.forEach(player => {
-            this.updatePlayerCards(player);
-        });
-        
-        // ตรวจสอบว่ายังมีผู้เล่นพอที่จะเล่นต่อหรือไม่
-        const activePlayers = this.players.filter(player => !player.isEliminated);
-        if (activePlayers.length < 2) {
-            console.log('ผู้เล่นไม่พอ 2 คน ไม่สามารถเริ่มเกมได้');
-            if (activePlayers.length === 1) {
-                const winner = activePlayers[0];
-                this.addLogEntry('<strong style="color: #ffd700; font-size: 1.2em;">' + winner.name + ' ชนะเกม!</strong>');
-            }
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('continue-btn').style.display = 'none';
+        if (this.isStartingGame) {
+            console.log('🚫 Blocked: กำลังเริ่มเกมอยู่แล้ว');
             return;
         }
         
-        this.postBlinds();
-        this.dealHoleCards();
-        this.gameStarted = true;
-        this.gameOver = false;
-        this.roundCompleted = false;
-        this.showAICards = false;
+        if (this.gameStarted && !this.roundCompleted) {
+            console.log('🚫 Blocked: เกมกำลังดำเนินอยู่');
+            return;
+        }
         
-        this.updateUI();
+        this.isStartingGame = true;
+        console.log('🎮 Starting game...');
         
-        document.getElementById('start-btn').disabled = true;
-        document.getElementById('continue-btn').style.display = 'none';
-        
-        this.addLogEntry('เริ่มเกมใหม่! เจ้ามือ: ' + this.players[this.dealerIndex].name);
-        console.log('เริ่มตาใหม่กับผู้เล่น:', activePlayers.map(p => p.name));
-        
-        // เริ่มรอบการเดิมพัน preflop
-        setTimeout(() => {
-            this.startBettingRound();
-        }, 2000);
+        try {
+            this.resetRound();
+            this.shuffleDeck();
+            this.determineDealer();
+            
+            const gameEnded = this.eliminateBrokePlayers();
+            if (gameEnded) {
+                console.log('เกมจบแล้ว ไม่เริ่มตาใหม่');
+                this.isStartingGame = false;
+                return;
+            }
+            
+            this.players.forEach(player => {
+                this.updatePlayerCards(player);
+            });
+            
+            const activePlayers = this.players.filter(player => !player.isEliminated);
+            if (activePlayers.length < 2) {
+                console.log('ผู้เล่นไม่พอ 2 คน ไม่สามารถเริ่มเกมได้');
+                this.isStartingGame = false;
+                return;
+            }
+            
+            this.postBlinds();
+            this.dealHoleCards();
+            this.gameStarted = true;
+            this.gameOver = false;
+            this.roundCompleted = false;
+            this.showAICards = false;
+            
+            this.updateUI();
+            
+            // ⭐️ ปิดปุ่มชั่วคราวเพื่อป้องกันการคลิกซ้ำ
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) startBtn.disabled = true;
+            
+            const continueBtn = document.getElementById('continue-btn');
+            if (continueBtn) continueBtn.style.display = 'none';
+            
+            this.addLogEntry('เริ่มเกมใหม่! เจ้ามือ: ' + this.players[this.dealerIndex].name);
+            
+            // ⭐️ ใช้ delay ที่แน่นอน
+            setTimeout(() => {
+                this.startBettingRound();
+                this.isStartingGame = false;
+                console.log('✅ Game started successfully');
+            }, 2000);
+            
+        } catch (error) {
+            console.error('❌ Error in startGame:', error);
+            this.isStartingGame = false;
+            
+            // ⭐️ เปิดปุ่มใหม่ถ้ามี error
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) startBtn.disabled = false;
+        }
     }
 
-    // เล่นต่อหลังจากจบรอบ
     continueGame() {
         if (!this.roundCompleted) return;
         this.startGame();
     }
     
-    // กำหนดเจ้ามือ (แก้ไขแล้ว)
     determineDealer() {
         const activePlayers = this.players.filter(player => !player.isEliminated);
-        
-        if (activePlayers.length < 2) {
-            console.log('ผู้เล่นไม่พอสำหรับกำหนดเจ้ามือ');
-            return;
-        }
+        if (activePlayers.length < 2) return;
         
         let nextDealerIndex = (this.dealerIndex + 1) % 4;
-        
-        // หาเจ้ามือคนต่อไปที่ยังไม่ถูกคัดออก
         let attempts = 0;
+        
         while (this.players[nextDealerIndex].isEliminated && attempts < 4) {
             nextDealerIndex = (nextDealerIndex + 1) % 4;
             attempts++;
         }
         
-        // ถ้าหาเจ้ามือไม่ได้ (ทุกคนถูกคัดออก) ให้เริ่มเกมใหม่
-        if (this.players[nextDealerIndex].isEliminated) {
-            console.log('ไม่พบเจ้ามือที่เหมาะสม');
-            return;
-        }
+        if (this.players[nextDealerIndex].isEliminated) return;
         
         this.dealerIndex = nextDealerIndex;
         
@@ -226,18 +234,13 @@ class TexasHoldemGame {
         const smallBlindIndex = this.findNextActivePlayer(this.dealerIndex);
         const bigBlindIndex = this.findNextActivePlayer(smallBlindIndex);
         
-        // ตรวจสอบว่าเจ้ามือ, small blind, big blind ยังไม่ถูกคัดออก
         if (!this.players[smallBlindIndex].isEliminated && !this.players[bigBlindIndex].isEliminated) {
             this.players[smallBlindIndex].isSmallBlind = true;
             this.players[bigBlindIndex].isBigBlind = true;
-            
             this.updateDealerIndicators();
-        } else {
-            console.log('ไม่สามารถตั้ง Small Blind/Big Blind ได้');
         }
     }
     
-    // หาผู้เล่นที่ยังเล่นอยู่คนถัดไป
     findNextActivePlayer(startIndex) {
         let nextIndex = (startIndex + 1) % 4;
         let attempts = 0;
@@ -250,7 +253,6 @@ class TexasHoldemGame {
         return nextIndex;
     }
     
-    // อัพเดทตัวบ่งชี้เจ้ามือ
     updateDealerIndicators() {
         document.querySelectorAll('.dealer-indicator').forEach(indicator => {
             indicator.style.display = 'none';
@@ -266,7 +268,6 @@ class TexasHoldemGame {
         }
     }
     
-    // โพสต์ Small Blind และ Big Blind (แก้ไขแล้ว)
     postBlinds() {
         const smallBlindIndex = this.findNextActivePlayer(this.dealerIndex);
         const bigBlindIndex = this.findNextActivePlayer(smallBlindIndex);
@@ -277,7 +278,6 @@ class TexasHoldemGame {
         const smallBlindAmount = 10;
         const bigBlindAmount = 20;
         
-        // Small Blind (เฉพาะถ้ายังไม่ถูกคัดออก)
         if (!smallBlindPlayer.isEliminated) {
             if (smallBlindPlayer.chips >= smallBlindAmount) {
                 smallBlindPlayer.chips -= smallBlindAmount;
@@ -293,7 +293,6 @@ class TexasHoldemGame {
             }
         }
         
-        // Big Blind (เฉพาะถ้ายังไม่ถูกคัดออก)
         if (!bigBlindPlayer.isEliminated) {
             if (bigBlindPlayer.chips >= bigBlindAmount) {
                 bigBlindPlayer.chips -= bigBlindAmount;
@@ -314,55 +313,45 @@ class TexasHoldemGame {
         this.updateUI();
     }
     
-    // แจกไพ่ส่วนตัว (แก้ไขแล้ว)
+    // ⭐️ แก้ไข: ป้องกันการแจกไพ่ซ้ำ
     dealHoleCards() {
+        if (this.isDealingCards) {
+            console.log('🚫 Blocked: กำลังแจกไพ่อยู่แล้ว');
+            return;
+        }
+        
+        this.isDealingCards = true;
         this.addLogEntry('กำลังแจกไพ่ส่วนตัว...');
-        console.log('เริ่มแจกไพ่ส่วนตัว');
         
-        let playerIndex = 0;
         const activePlayers = this.players.filter(player => !player.isEliminated);
+        let playersDealt = 0;
         
-        activePlayers.forEach((player) => {
+        activePlayers.forEach((player, index) => {
             setTimeout(() => {
-                // ตรวจสอบว่า deck มีไพ่พอ
                 if (this.deck.length < 2) {
-                    console.error('ไพ่ใน deck ไม่พอสำหรับแจก');
                     this.initializeDeck();
                     this.shuffleDeck();
                 }
                 
-                // แจกไพ่ 2 ใบให้ผู้เล่น
                 player.cards = [this.deck.pop(), this.deck.pop()];
                 player.isFolded = false;
-                
-                console.log('แจกไพ่ให้ผู้เล่น:', player.name, 'ไพ่:', player.cards);
-                
-                // อัพเดทการแสดงไพ่
                 this.updatePlayerCards(player);
                 
-                playerIndex++;
-                if (playerIndex === activePlayers.length) {
+                playersDealt++;
+                if (playersDealt === activePlayers.length) {
                     this.addLogEntry('แจกไพ่ส่วนตัวเรียบร้อยแล้ว');
-                    console.log('แจกไพ่ส่วนตัวเสร็จสิ้น');
+                    this.isDealingCards = false;
                 }
-            }, playerIndex * 800);
+            }, index * 800);
         });
     }
     
-    // อัพเดทการ์ดผู้เล่น (แก้ไขแล้ว - แสดงไพ่คว่ำเมื่อถูกคัดออก)
     updatePlayerCards(player) {
-        // ใช้ selector ที่ถูกต้อง
         const cardsContainer = document.querySelector(`#${player.id} .player-cards`);
+        if (!cardsContainer) return;
         
-        if (!cardsContainer) {
-            console.error('ไม่พบ container สำหรับไพ่ของผู้เล่น:', player.id);
-            return;
-        }
-        
-        // ล้างการ์ดเดิม
         cardsContainer.innerHTML = '';
         
-        // ⭐️ ถ้าผู้เล่นถูกคัดออก ให้แสดงไพ่คว่ำเสมอ
         if (player.isEliminated) {
             for (let i = 0; i < 2; i++) {
                 const cardElement = document.createElement('div');
@@ -372,10 +361,7 @@ class TexasHoldemGame {
             return;
         }
         
-        // ตรวจสอบว่าผู้เล่นมีไพ่หรือไม่
         if (!player.cards || player.cards.length === 0) {
-            console.log('ผู้เล่น', player.name, 'ยังไม่มีไพ่');
-            // แสดงการ์ดหงายหลังถ้ายังไม่มีไพ่
             for (let i = 0; i < 2; i++) {
                 const cardElement = document.createElement('div');
                 cardElement.className = 'card card-back';
@@ -384,17 +370,13 @@ class TexasHoldemGame {
             return;
         }
         
-        console.log('อัพเดทไพ่สำหรับผู้เล่น:', player.name, 'จำนวนไพ่:', player.cards.length);
-        
         if (player.isAI && !this.showAICards) {
-            // สำหรับ AI ให้แสดงการ์ดหงายหลัง
             for (let i = 0; i < 2; i++) {
                 const cardElement = document.createElement('div');
                 cardElement.className = 'card card-back';
                 cardsContainer.appendChild(cardElement);
             }
         } else {
-            // แสดงไพ่จริง
             player.cards.forEach((card) => {
                 const cardElement = document.createElement('div');
                 const isRed = card.suit === '♥' || card.suit === '♦';
@@ -411,7 +393,6 @@ class TexasHoldemGame {
         }
     }
     
-    // แสดงไพ่ของ AI ทั้งหมด (เมื่อจบตา)
     revealAICards() {
         this.showAICards = true;
         this.players.forEach(player => {
@@ -422,14 +403,12 @@ class TexasHoldemGame {
         this.updateUI();
     }
     
-    // แจกไพ่กองกลาง
     dealCommunityCards(count) {
         this.addLogEntry('กำลังแจกไพ่กองกลาง...');
         
         for (let i = 0; i < count; i++) {
             setTimeout(() => {
                 if (this.deck.length === 0) {
-                    console.error('ไพ่ใน deck หมดแล้ว');
                     this.initializeDeck();
                     this.shuffleDeck();
                 }
@@ -449,9 +428,7 @@ class TexasHoldemGame {
                     this.gamePhase = 'river';
                 }
                 
-                // อัพเดทแต้มมือผู้เล่น
                 this.updateAllPlayerHandRanks();
-                
                 this.updateUI();
             }, i * 1500);
         }
@@ -461,7 +438,6 @@ class TexasHoldemGame {
         }, count * 1500 + 500);
     }
     
-    // อัพเดทแต้มมือผู้เล่นทั้งหมด
     updateAllPlayerHandRanks() {
         this.players.forEach(player => {
             if (!player.isEliminated && !player.isFolded && player.cards.length > 0) {
@@ -472,13 +448,9 @@ class TexasHoldemGame {
         });
     }
     
-    // เพิ่มการ์ดกองกลาง
     addCommunityCard(card) {
         const communityContainer = document.getElementById('community-cards');
-        if (!communityContainer) {
-            console.error('ไม่พบ community-cards container');
-            return;
-        }
+        if (!communityContainer) return;
         
         const cardElement = document.createElement('div');
         const isRed = card.suit === '♥' || card.suit === '♦';
@@ -493,12 +465,10 @@ class TexasHoldemGame {
         communityContainer.appendChild(cardElement);
     }
     
-    // เริ่มรอบการเดิมพัน
     startBettingRound() {
         this.currentPlayerIndex = this.findNextActivePlayer(this.findNextActivePlayer(this.dealerIndex));
         this.bettingRoundComplete = false;
         
-        // รีเซ็ต currentBet ของผู้เล่นสำหรับรอบใหม่ (เฉพาะผู้ที่ยังมีชิพ)
         this.players.forEach(player => {
             if (!player.isEliminated && !player.isFolded && player.chips > 0) {
                 player.currentBet = 0;
@@ -509,59 +479,100 @@ class TexasHoldemGame {
         this.nextPlayerTurn();
     }
     
-    // เทิร์นผู้เล่นถัดไป (แก้ไขแล้ว)
+    // ⭐️ แก้ไขใหญ่: ป้องกันการเบิ้ลในเทิร์นผู้เล่น
     nextPlayerTurn() {
-        const activePlayers = this.players.filter(player => !player.isEliminated && !player.isFolded);
+        console.log('🔧 nextPlayerTurn called - isProcessingTurn:', this.isProcessingTurn);
         
-        if (activePlayers.length === 1) {
-            this.endRound();
+        if (this.isProcessingTurn) {
+            console.log('🚫 Blocked: กำลังประมวลผลเทิร์นอยู่');
             return;
         }
         
-        let playersActed = 0;
-        this.players.forEach(player => {
-            if (!player.isEliminated && !player.isFolded && 
-                (player.currentBet === this.currentBet || player.chips === 0 || player.isFolded)) {
-                playersActed++;
+        this.isProcessingTurn = true;
+        
+        // ⭐️ ล้าง timeout ก่อนหน้า (ป้องกัน AI decision ทับกัน)
+        if (this.aiDecisionTimeout) {
+            clearTimeout(this.aiDecisionTimeout);
+            this.aiDecisionTimeout = null;
+        }
+        
+        try {
+            const activePlayers = this.players.filter(player => !player.isEliminated && !player.isFolded);
+            
+            if (activePlayers.length === 1) {
+                console.log('มีผู้เล่นเหลือคนเดียว จบรอบ');
+                this.endRound();
+                this.isProcessingTurn = false;
+                return;
             }
-        });
-        
-        if (playersActed === activePlayers.length && activePlayers.length > 1) {
-            this.bettingRoundComplete = true;
-            this.nextGamePhase();
-            return;
+            
+            // ตรวจสอบว่า betting round เสร็จสิ้นหรือยัง
+            let playersActed = 0;
+            this.players.forEach(player => {
+                if (!player.isEliminated && !player.isFolded && 
+                    (player.currentBet === this.currentBet || player.chips === 0)) {
+                    playersActed++;
+                }
+            });
+            
+            if (playersActed === activePlayers.length && activePlayers.length > 1) {
+                console.log('ทุกคนเดิมพันเสร็จแล้ว ไปเฟสถัดไป');
+                this.bettingRoundComplete = true;
+                this.nextGamePhase();
+                this.isProcessingTurn = false;
+                return;
+            }
+            
+            // หาผู้เล่นคนต่อไป
+            let attempts = 0;
+            do {
+                this.currentPlayerIndex = (this.currentPlayerIndex + 1) % 4;
+                attempts++;
+                if (attempts > 10) {
+                    console.error('❌ Infinite loop in nextPlayerTurn');
+                    this.isProcessingTurn = false;
+                    return;
+                }
+            } while ((this.players[this.currentPlayerIndex].isFolded || 
+                     this.players[this.currentPlayerIndex].isEliminated || 
+                     this.players[this.currentPlayerIndex].chips === 0) && 
+                     activePlayers.length > 1);
+            
+            const currentPlayer = this.players[this.currentPlayerIndex];
+            console.log('เทิร์นของผู้เล่น:', currentPlayer.name);
+            
+            this.updatePlayerStatuses(currentPlayer);
+            
+            if (currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
+                console.log('AI decision for:', currentPlayer.name);
+                this.showAIThinking(currentPlayer);
+                
+                // ⭐️ ใช้ timeout ที่สามารถล้างได้
+                this.aiDecisionTimeout = setTimeout(() => {
+                    this.hideAIThinking(currentPlayer);
+                    this.makeAIDecision(currentPlayer);
+                    this.isProcessingTurn = false;
+                    this.aiDecisionTimeout = null;
+                }, 1500);
+                
+            } else if (!currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
+                console.log('ผู้เล่นจริงเล่น');
+                this.enablePlayerActions();
+                this.isProcessingTurn = false;
+            } else {
+                console.log('ผู้เล่นไม่สามารถเล่นได้ ไปเทิร์นถัดไป');
+                this.isProcessingTurn = false;
+                setTimeout(() => this.nextPlayerTurn(), 500);
+            }
+            
+            this.updateUI();
+            
+        } catch (error) {
+            console.error('❌ Error in nextPlayerTurn:', error);
+            this.isProcessingTurn = false;
         }
-        
-        // หาผู้เล่นคนต่อไปที่ยังไม่ถูกคัดออกและยังไม่ Fold
-        do {
-            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % 4;
-        } while ((this.players[this.currentPlayerIndex].isFolded || 
-                 this.players[this.currentPlayerIndex].isEliminated || 
-                 this.players[this.currentPlayerIndex].chips === 0) && 
-                 activePlayers.length > 1);
-        
-        const currentPlayer = this.players[this.currentPlayerIndex];
-        
-        this.updatePlayerStatuses(currentPlayer);
-        
-        if (currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-            this.showAIThinking(currentPlayer);
-            setTimeout(() => {
-                this.hideAIThinking(currentPlayer);
-                this.makeAIDecision(currentPlayer);
-            }, 1500);
-        } else if (!currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-            this.enablePlayerActions();
-        } else if (currentPlayer.chips === 0 && !currentPlayer.isFolded && !currentPlayer.isEliminated) {
-            // ผู้เล่นที่หมดชิพแต่ยังไม่ Fold และยังไม่ถูกคัดออก ให้ Check อัตโนมัติ
-            this.addLogEntry(currentPlayer.name + ' All-in แล้ว!');
-            this.nextPlayerTurn();
-        }
-        
-        this.updateUI();
     }
     
-    // แสดงสถานะการคิดของ AI (แก้ไขแล้ว)
     showAIThinking(player) {
         const statusId = player.id === 'player-user' ? 'status-user' : `status${player.id.slice(-1)}`;
         const statusElement = document.getElementById(statusId);
@@ -571,7 +582,6 @@ class TexasHoldemGame {
         }
     }
     
-    // ซ่อนสถานะการคิดของ AI (แก้ไขแล้ว)
     hideAIThinking(player) {
         const statusId = player.id === 'player-user' ? 'status-user' : `status${player.id.slice(-1)}`;
         const statusElement = document.getElementById(statusId);
@@ -580,9 +590,7 @@ class TexasHoldemGame {
         }
     }
     
-    // อัพเดทสถานะผู้เล่นทั้งหมด (แก้ไขแล้ว)
     updatePlayerStatuses(currentPlayer) {
-        // ลบ active class ออกจากทุกคนก่อน
         document.querySelectorAll('.player-info').forEach(info => {
             info.classList.remove('active');
         });
@@ -592,10 +600,7 @@ class TexasHoldemGame {
             const statusElement = document.getElementById(statusId);
             const playerInfoElement = document.querySelector(`#${player.id} .player-info`);
             
-            if (!statusElement || !playerInfoElement) {
-                console.error('ไม่พบ element สำหรับผู้เล่น:', player.id);
-                return;
-            }
+            if (!statusElement || !playerInfoElement) return;
             
             if (player.isEliminated) {
                 statusElement.textContent = 'ชิพหมดถูกคัดออก';
@@ -616,64 +621,65 @@ class TexasHoldemGame {
         });
     }
     
-    // นับจำนวนผู้เล่นที่ยังเล่นอยู่
-    getActivePlayersCount() {
-        return this.players.filter(player => !player.isEliminated).length;
-    }
-    
-    // AI ตัดสินใจ
     makeAIDecision(player) {
-        const handStrength = this.calculateHandStrength(player);
-        const positionFactor = this.calculatePositionFactor(player);
-        const potOdds = this.calculatePotOdds(player);
-        const bluffFactor = this.calculateBluffFactor(player);
+        console.log('🤖 AI decision for:', player.name);
         
-        let decisionScore = handStrength * 0.5 + positionFactor * 0.2 + potOdds * 0.2 + bluffFactor * 0.1;
-        
-        if (player.personality === 'aggressive') {
-            decisionScore *= 1.2;
-        } else if (player.personality === 'conservative') {
-            decisionScore *= 0.8;
-        }
-        
-        if (decisionScore < 0.3) {
-            if (player.currentBet < this.currentBet) {
-                this.playerFold(player);
-            } else {
-                this.playerCheck(player);
+        try {
+            const handStrength = this.calculateHandStrength(player);
+            const positionFactor = this.calculatePositionFactor(player);
+            const potOdds = this.calculatePotOdds(player);
+            const bluffFactor = this.calculateBluffFactor(player);
+            
+            let decisionScore = handStrength * 0.5 + positionFactor * 0.2 + potOdds * 0.2 + bluffFactor * 0.1;
+            
+            if (player.personality === 'aggressive') {
+                decisionScore *= 1.2;
+            } else if (player.personality === 'conservative') {
+                decisionScore *= 0.8;
             }
-        } else if (decisionScore < 0.6) {
-            if (player.currentBet < this.currentBet) {
-                this.playerCall(player);
-            } else {
-                this.playerCheck(player);
-            }
-        } else {
-            if (player.currentBet < this.currentBet) {
-                if (Math.random() < 0.7) {
-                    this.playerCall(player);
-                } else {
-                    const raiseAmount = Math.min(
-                        Math.floor(handStrength * player.chips * 0.3),
-                        player.chips
-                    );
-                    this.playerRaise(player, Math.max(raiseAmount, this.currentBet + 10));
-                }
-            } else {
-                if (Math.random() < 0.8) {
-                    const raiseAmount = Math.min(
-                        Math.floor(handStrength * player.chips * 0.4),
-                        player.chips
-                    );
-                    this.playerRaise(player, Math.max(raiseAmount, 20));
+            
+            if (decisionScore < 0.3) {
+                if (player.currentBet < this.currentBet) {
+                    this.playerFold(player);
                 } else {
                     this.playerCheck(player);
                 }
+            } else if (decisionScore < 0.6) {
+                if (player.currentBet < this.currentBet) {
+                    this.playerCall(player);
+                } else {
+                    this.playerCheck(player);
+                }
+            } else {
+                if (player.currentBet < this.currentBet) {
+                    if (Math.random() < 0.7) {
+                        this.playerCall(player);
+                    } else {
+                        const raiseAmount = Math.min(
+                            Math.floor(handStrength * player.chips * 0.3),
+                            player.chips
+                        );
+                        this.playerRaise(player, Math.max(raiseAmount, this.currentBet + 10));
+                    }
+                } else {
+                    if (Math.random() < 0.8) {
+                        const raiseAmount = Math.min(
+                            Math.floor(handStrength * player.chips * 0.4),
+                            player.chips
+                        );
+                        this.playerRaise(player, Math.max(raiseAmount, 20));
+                    } else {
+                        this.playerCheck(player);
+                    }
+                }
             }
+        } catch (error) {
+            console.error('❌ Error in AI decision:', error);
+            // ถ้า AI decision error ให้ fold อัตโนมัติ
+            this.playerFold(player);
         }
     }
     
-    // คำนวณความแข็งแกร่งของมือ
     calculateHandStrength(player) {
         const allCards = [...player.cards, ...this.communityCards];
         if (allCards.length < 2) return 0.5;
@@ -681,16 +687,9 @@ class TexasHoldemGame {
         const handResult = this.evaluateHand(allCards);
         
         const baseScores = {
-            'High Card': 0.1,
-            'One Pair': 0.3,
-            'Two Pair': 0.5,
-            'Three of a Kind': 0.6,
-            'Straight': 0.7,
-            'Flush': 0.8,
-            'Full House': 0.9,
-            'Four of a Kind': 0.95,
-            'Straight Flush': 0.99,
-            'Royal Flush': 1.0
+            'High Card': 0.1, 'One Pair': 0.3, 'Two Pair': 0.5, 'Three of a Kind': 0.6,
+            'Straight': 0.7, 'Flush': 0.8, 'Full House': 0.9, 'Four of a Kind': 0.95,
+            'Straight Flush': 0.99, 'Royal Flush': 1.0
         };
         
         let score = baseScores[handResult.rank] || 0.1;
@@ -703,7 +702,6 @@ class TexasHoldemGame {
         return Math.min(score, 1.0);
     }
     
-    // คำนวณปัจจัยตำแหน่ง
     calculatePositionFactor(player) {
         const playerIndex = this.players.indexOf(player);
         const dealerIndex = this.dealerIndex;
@@ -717,7 +715,6 @@ class TexasHoldemGame {
         }
     }
     
-    // คำนวณอัตราส่วนเงินกองกลาง
     calculatePotOdds(player) {
         const callAmount = this.currentBet - player.currentBet;
         if (callAmount <= 0) return 1.0;
@@ -726,30 +723,29 @@ class TexasHoldemGame {
         return Math.max(0, 1 - potOdds);
     }
     
-    // คำนวณปัจจัยการบลัฟ
     calculateBluffFactor(player) {
         return Math.random() < 0.2 ? 0.7 : 0.3;
     }
     
-    // ผู้เล่น Fold
     playerFold(player) {
+        console.log('🃏 Player fold:', player.name);
         player.isFolded = true;
         player.status = 'folded';
         this.addLogEntry(player.name + ' Fold');
         this.nextPlayerTurn();
     }
     
-    // ผู้เล่น Check
     playerCheck(player) {
+        console.log('✅ Player check:', player.name);
         player.status = 'checked';
         this.addLogEntry(player.name + ' Check');
         this.nextPlayerTurn();
     }
     
-    // ผู้เล่น Call
     playerCall(player) {
+        console.log('📞 Player call:', player.name);
         const callAmount = this.currentBet - player.currentBet;
-        const actualCallAmount = Math.min(callAmount, player.chips); // เรียกเท่าที่มี
+        const actualCallAmount = Math.min(callAmount, player.chips);
         
         if (player.chips >= actualCallAmount) {
             player.chips -= actualCallAmount;
@@ -767,9 +763,9 @@ class TexasHoldemGame {
         }
     }
     
-    // ผู้เล่น Raise
     playerRaise(player, amount) {
-        const actualAmount = Math.min(amount, player.chips); // เดิมพันเท่าที่มี
+        console.log('⬆️ Player raise:', player.name, amount);
+        const actualAmount = Math.min(amount, player.chips);
         const totalBet = player.currentBet + actualAmount;
         
         if (player.chips >= actualAmount) {
@@ -789,43 +785,54 @@ class TexasHoldemGame {
         }
     }
     
-    // เปิดใช้งานการควบคุมสำหรับผู้เล่นจริง
     enablePlayerActions() {
         const currentPlayer = this.players[this.currentPlayerIndex];
         
         if (!currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-            document.getElementById('fold-btn').disabled = false;
+            const foldBtn = document.getElementById('fold-btn');
+            const checkBtn = document.getElementById('check-btn');
+            const callBtn = document.getElementById('call-btn');
+            const raiseBtn = document.getElementById('raise-btn');
+            const betSlider = document.getElementById('bet-slider');
+            
+            if (foldBtn) foldBtn.disabled = false;
             
             if (currentPlayer.currentBet === this.currentBet) {
-                document.getElementById('check-btn').disabled = false;
-                document.getElementById('call-btn').disabled = true;
+                if (checkBtn) checkBtn.disabled = false;
+                if (callBtn) callBtn.disabled = true;
             } else {
-                document.getElementById('check-btn').disabled = true;
-                document.getElementById('call-btn').disabled = false;
+                if (checkBtn) checkBtn.disabled = true;
+                if (callBtn) callBtn.disabled = false;
             }
             
             if (currentPlayer.chips > 0) {
-                document.getElementById('raise-btn').disabled = false;
-                document.getElementById('bet-slider').disabled = false;
-                document.getElementById('bet-slider').max = currentPlayer.chips;
-                document.getElementById('bet-slider').value = Math.min(50, currentPlayer.chips);
-                this.updateBetAmount();
+                if (raiseBtn) raiseBtn.disabled = false;
+                if (betSlider) {
+                    betSlider.disabled = false;
+                    betSlider.max = currentPlayer.chips;
+                    betSlider.value = Math.min(50, currentPlayer.chips);
+                    this.updateBetAmount();
+                }
             }
         } else {
             this.disablePlayerActions();
         }
     }
     
-    // ปิดการใช้งานการควบคุม
     disablePlayerActions() {
-        document.getElementById('fold-btn').disabled = true;
-        document.getElementById('check-btn').disabled = true;
-        document.getElementById('call-btn').disabled = true;
-        document.getElementById('raise-btn').disabled = true;
-        document.getElementById('bet-slider').disabled = true;
+        const foldBtn = document.getElementById('fold-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const callBtn = document.getElementById('call-btn');
+        const raiseBtn = document.getElementById('raise-btn');
+        const betSlider = document.getElementById('bet-slider');
+        
+        if (foldBtn) foldBtn.disabled = true;
+        if (checkBtn) checkBtn.disabled = true;
+        if (callBtn) callBtn.disabled = true;
+        if (raiseBtn) raiseBtn.disabled = true;
+        if (betSlider) betSlider.disabled = true;
     }
     
-    // อัพเดทจำนวนเงินที่ต้องการเดิมพัน
     updateBetAmount() {
         const slider = document.getElementById('bet-slider');
         const amountDisplay = document.getElementById('bet-amount');
@@ -834,8 +841,9 @@ class TexasHoldemGame {
         }
     }
     
-    // ต่อไปยังเฟสถัดไปของเกม
     nextGamePhase() {
+        console.log('🔄 Next game phase:', this.gamePhase);
+        
         if (this.gamePhase === 'preflop') {
             this.gamePhase = 'flop';
             this.dealCommunityCards(3);
@@ -851,8 +859,8 @@ class TexasHoldemGame {
         }
     }
     
-    // เปรียบเทียบมือและหาผู้ชนะ
     showdown() {
+        console.log('🎯 Showdown');
         this.addLogEntry('เปิดไพ่! เปรียบเทียบมือผู้เล่น');
         
         this.revealAICards();
@@ -868,20 +876,18 @@ class TexasHoldemGame {
         
         if (activePlayers.length > 0) {
             const winners = this.determineWinners(activePlayers);
-            
-            // แบ่งเงินกองกลางให้ผู้ชนะ
             this.distributePot(winners);
         }
         
         this.roundCompleted = true;
         this.updateUI();
         
-        document.getElementById('continue-btn').style.display = 'block';
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) continueBtn.style.display = 'block';
         
         this.checkGameEnd();
     }
     
-    // เปรียบเทียบมือและหาผู้ชนะ
     determineWinners(players) {
         const playerHands = players.map(player => {
             const allCards = [...player.cards, ...this.communityCards];
@@ -915,7 +921,6 @@ class TexasHoldemGame {
         return winners.map(w => w.player);
     }
 
-    // แบ่งเงินกองกลาง
     distributePot(winners) {
         if (winners.length === 1) {
             winners[0].chips += this.pot;
@@ -931,8 +936,8 @@ class TexasHoldemGame {
         this.pot = 0;
     }
     
-    // สิ้นสุดรอบ (เมื่อมีผู้เล่นเหลือคนเดียว)
     endRound() {
+        console.log('🏁 End round');
         const winner = this.players.find(player => !player.isEliminated && !player.isFolded);
         if (winner) {
             winner.chips += this.pot;
@@ -941,52 +946,50 @@ class TexasHoldemGame {
         }
         
         this.revealAICards();
-        
         this.roundCompleted = true;
         this.updateUI();
         
-        document.getElementById('continue-btn').style.display = 'block';
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) continueBtn.style.display = 'block';
         
         this.checkGameEnd();
     }
     
-    // ตรวจสอบการจบเกม (แก้ไขแล้ว)
     checkGameEnd() {
         const activePlayers = this.players.filter(player => !player.isEliminated);
-        
-        // ตรวจสอบเฉพาะกรณีที่เกมจบจริงๆ (เหลือผู้เล่นคนเดียวที่ยังมีชิพ)
         const playersWithChips = this.players.filter(player => player.chips > 0 && !player.isEliminated);
-        
-        console.log('ตรวจสอบการจบเกม - ผู้เล่นที่เหลือ:', activePlayers.length, 'ผู้เล่นที่มีชิพ:', playersWithChips.length);
         
         if (playersWithChips.length === 1 && activePlayers.length > 1) {
             this.gameOver = true;
             const winner = playersWithChips[0];
             this.addLogEntry('<strong style="color: #ffd700; font-size: 1.2em;">' + winner.name + ' ชนะเกม!</strong>');
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('continue-btn').style.display = 'none';
+            
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) startBtn.disabled = false;
+            
+            const continueBtn = document.getElementById('continue-btn');
+            if (continueBtn) continueBtn.style.display = 'none';
+            
             return true;
         }
         
-        // ถ้ามีผู้เล่นแค่คนเดียวและคนนั้นมีชิพ
         if (activePlayers.length === 1 && activePlayers[0].chips > 0) {
             this.gameOver = true;
             const winner = activePlayers[0];
             this.addLogEntry('<strong style="color: #ffd700; font-size: 1.2em;">' + winner.name + ' ชนะเกม!</strong>');
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('continue-btn').style.display = 'none';
+            
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) startBtn.disabled = false;
+            
+            const continueBtn = document.getElementById('continue-btn');
+            if (continueBtn) continueBtn.style.display = 'none';
+            
             return true;
-        }
-        
-        // ผู้เล่นจริงหมดชิพ (จะถูกคัดออกในตาเริ่มใหม่)
-        if (this.players[0].chips <= 0 && !this.players[0].isEliminated) {
-            return false;
         }
         
         return false;
     }
 
-    // คัดออกผู้เล่นที่เงินหมด (แก้ไขแล้ว)
     eliminateBrokePlayers() {
         let eliminatedCount = 0;
         
@@ -1003,50 +1006,48 @@ class TexasHoldemGame {
             }
         });
         
-        // ตรวจสอบว่าเกมจบหรือไม่ (เหลือผู้เล่นคนเดียว)
         const activePlayers = this.players.filter(player => !player.isEliminated);
-        console.log('คัดออกผู้เล่นแล้ว - ผู้เล่นที่เหลือ:', activePlayers.length);
         
         if (activePlayers.length === 1) {
             this.gameOver = true;
             const winner = activePlayers[0];
             this.addLogEntry('<strong style="color: #ffd700; font-size: 1.2em;">' + winner.name + ' ชนะเกม!</strong>');
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('continue-btn').style.display = 'none';
-            return true; // เกมจบแล้ว
+            
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) startBtn.disabled = false;
+            
+            const continueBtn = document.getElementById('continue-btn');
+            if (continueBtn) continueBtn.style.display = 'none';
+            
+            return true;
         }
         
-        // ตรวจสอบว่าผู้เล่นจริงถูกคัดออกหรือไม่
         if (this.players[0].isEliminated) {
-            // แต่ถ้ายังมี AI อื่นๆ ที่ยังมีชิพ ให้เกมดำเนินต่อ
             const remainingAIs = this.players.filter(player => 
                 player.isAI && !player.isEliminated && player.chips > 0
             );
             
             if (remainingAIs.length > 1) {
                 this.addLogEntry('<strong style="color: #ff0000;">คุณถูกคัดออก! แต่เกมจะดำเนินต่อระหว่าง AI</strong>');
-                return false; // เกมยังไม่จบ ให้ AI เล่นต่อ
+                return false;
             } else if (remainingAIs.length === 1) {
                 this.gameOver = true;
                 const winner = remainingAIs[0];
                 this.addLogEntry('<strong style="color: #ffd700; font-size: 1.2em;">' + winner.name + ' ชนะเกม!</strong>');
-                document.getElementById('start-btn').disabled = false;
-                document.getElementById('continue-btn').style.display = 'none';
-                return true; // เกมจบแล้ว
-            } else {
-                this.gameOver = true;
-                this.addLogEntry('<strong style="color: #ff0000; font-size: 1.2em;">คุณถูกคัดออก! เกมจบ</strong>');
-                document.getElementById('start-btn').disabled = false;
-                document.getElementById('continue-btn').style.display = 'none';
-                return true; // เกมจบแล้ว
+                
+                const startBtn = document.getElementById('start-btn');
+                if (startBtn) startBtn.disabled = false;
+                
+                const continueBtn = document.getElementById('continue-btn');
+                if (continueBtn) continueBtn.style.display = 'none';
+                
+                return true;
             }
         }
         
-        console.log('คัดออกผู้เล่นที่เงินหมด:', eliminatedCount, 'คน');
-        return false; // เกมยังไม่จบ
+        return false;
     }
     
-    // คำนวณแต้มของมือไพ่
     evaluateHand(cards) {
         const valueValues = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
         const sortedCards = [...cards].sort((a, b) => valueValues[b.value] - valueValues[a.value]);
@@ -1190,7 +1191,6 @@ class TexasHoldemGame {
         };
     }
     
-    // รีเซ็ตรอบ
     resetRound() {
         this.communityCards = [];
         this.pot = 0;
@@ -1198,6 +1198,13 @@ class TexasHoldemGame {
         this.gamePhase = 'preflop';
         this.bettingRoundComplete = false;
         this.showAICards = false;
+        this.isProcessingTurn = false;
+        
+        // ⭐️ ล้าง timeout เมื่อรีเซ็ต
+        if (this.aiDecisionTimeout) {
+            clearTimeout(this.aiDecisionTimeout);
+            this.aiDecisionTimeout = null;
+        }
         
         const communityContainer = document.getElementById('community-cards');
         if (communityContainer) {
@@ -1218,7 +1225,6 @@ class TexasHoldemGame {
         this.shuffleDeck();
     }
     
-    // รีเซ็ตเกม
     resetGame() {
         this.resetRound();
         this.players.forEach(player => {
@@ -1229,13 +1235,17 @@ class TexasHoldemGame {
         this.gameOver = false;
         this.roundCompleted = false;
         this.updateUI();
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('continue-btn').style.display = 'none';
+        
+        const startBtn = document.getElementById('start-btn');
+        if (startBtn) startBtn.disabled = false;
+        
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) continueBtn.style.display = 'none';
+        
         this.disablePlayerActions();
         this.addLogEntry('เริ่มเกมใหม่!');
     }
     
-    // อัพเดท UI (แก้ไขแล้ว)
     updateUI() {
         this.players.forEach(player => {
             const chipsId = player.id === 'player-user' ? 'chips-user' : `chips${player.id.slice(-1)}`;
@@ -1266,7 +1276,6 @@ class TexasHoldemGame {
             }
         });
         
-        // อัพเดทข้อมูลเกม
         const potAmount = document.getElementById('pot-amount');
         const currentBet = document.getElementById('current-bet');
         const dealerName = document.getElementById('dealer-name');
@@ -1277,17 +1286,13 @@ class TexasHoldemGame {
         if (dealerName) dealerName.textContent = this.players[this.dealerIndex].name;
         if (gamePhase) {
             const phaseNames = {
-                'preflop': 'Pre-flop',
-                'flop': 'Flop',
-                'turn': 'Turn', 
-                'river': 'River',
-                'showdown': 'Showdown'
+                'preflop': 'Pre-flop', 'flop': 'Flop', 'turn': 'Turn', 
+                'river': 'River', 'showdown': 'Showdown'
             };
             gamePhase.textContent = phaseNames[this.gamePhase] || 'Pre-flop';
         }
     }
     
-    // เพิ่มบันทึกในประวัติเกม
     addLogEntry(message) {
         const logEntries = document.getElementById('log-entries');
         if (!logEntries) return;
@@ -1304,7 +1309,6 @@ class TexasHoldemGame {
         logEntries.scrollTop = logEntries.scrollHeight;
     }
     
-    // ตั้งค่า event listeners
     initializeEventListeners() {
         const startBtn = document.getElementById('start-btn');
         const foldBtn = document.getElementById('fold-btn');
@@ -1317,12 +1321,14 @@ class TexasHoldemGame {
         
         if (startBtn) {
             startBtn.addEventListener('click', () => {
+                console.log('🎯 Start button clicked');
                 this.startGame();
             });
         }
         
         if (foldBtn) {
             foldBtn.addEventListener('click', () => {
+                console.log('🎯 Fold button clicked');
                 this.playerFold(this.players[this.currentPlayerIndex]);
                 this.disablePlayerActions();
             });
@@ -1330,6 +1336,7 @@ class TexasHoldemGame {
         
         if (checkBtn) {
             checkBtn.addEventListener('click', () => {
+                console.log('🎯 Check button clicked');
                 this.playerCheck(this.players[this.currentPlayerIndex]);
                 this.disablePlayerActions();
             });
@@ -1337,6 +1344,7 @@ class TexasHoldemGame {
         
         if (callBtn) {
             callBtn.addEventListener('click', () => {
+                console.log('🎯 Call button clicked');
                 this.playerCall(this.players[this.currentPlayerIndex]);
                 this.disablePlayerActions();
             });
@@ -1344,6 +1352,7 @@ class TexasHoldemGame {
         
         if (raiseBtn) {
             raiseBtn.addEventListener('click', () => {
+                console.log('🎯 Raise button clicked');
                 const raiseAmount = parseInt(document.getElementById('bet-slider').value);
                 this.playerRaise(this.players[this.currentPlayerIndex], raiseAmount);
                 this.disablePlayerActions();
@@ -1352,6 +1361,7 @@ class TexasHoldemGame {
         
         if (continueBtn) {
             continueBtn.addEventListener('click', () => {
+                console.log('🎯 Continue button clicked');
                 this.continueGame();
             });
         }
@@ -1364,94 +1374,282 @@ class TexasHoldemGame {
         
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
+                console.log('🎯 Reset button clicked');
                 this.resetGame();
             });
         }
         
-        console.log('Event listeners initialized');
+        console.log('Game event listeners initialized');
     }
-    // ในคลาส TexasHoldemGame เพิ่ม method ต่อไปนี้:
+}
 
-// แสดง overlay ผู้ชนะ
-showWinnerOverlay(winnerName, chipsWon) {
-    const overlay = document.getElementById('winner-overlay');
-    const winnerNameElement = document.getElementById('winner-name');
-    const chipsWonElement = document.getElementById('chips-won-amount');
+// ⭐️ คลาสระบบธนาคารแบบไม่กระทบเกม
+class BankSystem {
+    constructor(pokerGame) {
+        this.pokerGame = pokerGame;
+        this.bankBalance = 2000;
+        this.passiveIncomeInterval = null;
+        this.passiveIncomeTimeLeft = 300;
+        this.transactions = ['เริ่มต้น: เงิน 2000 ชิป'];
+        
+        this.initializeBankUI();
+        this.startPassiveIncomeTimer();
+        this.updateBankDisplay();
+        
+        console.log('Bank System initialized (No-Interference Mode)');
+    }
     
-    if (overlay && winnerNameElement && chipsWonElement) {
-        winnerNameElement.textContent = winnerName;
-        chipsWonElement.textContent = chipsWon;
-        overlay.style.display = 'flex';
+    initializeBankUI() {
+        this.updateTableChips();
         
-        // เพิ่ม event listener สำหรับคลิกเพื่อปิด overlay
-        const clickHandler = () => {
-            this.hideWinnerOverlay();
-            overlay.removeEventListener('click', clickHandler);
-        };
-        overlay.addEventListener('click', clickHandler);
+        // Event Listeners เฉพาะธนาคาร
+        const depositBtn = document.getElementById('deposit-btn');
+        const withdrawBtn = document.getElementById('withdraw-btn');
+        const autoRefillBtn = document.getElementById('auto-refill-btn');
+        const depositAmount = document.getElementById('deposit-amount');
+        const withdrawAmount = document.getElementById('withdraw-amount');
+        
+        if (depositBtn) {
+            depositBtn.addEventListener('click', () => this.deposit());
+        }
+        if (withdrawBtn) {
+            withdrawBtn.addEventListener('click', () => this.withdraw());
+        }
+        if (autoRefillBtn) {
+            autoRefillBtn.addEventListener('click', () => this.autoRefill());
+        }
+        if (depositAmount) {
+            depositAmount.addEventListener('input', () => this.validateInputs());
+        }
+        if (withdrawAmount) {
+            withdrawAmount.addEventListener('input', () => this.validateInputs());
+        }
+        
+        // ⭐️ ไม่แตะต้องปุ่มเริ่มเกมของระบบเกม
     }
-}
-
-// ซ่อน overlay ผู้ชนะ
-hideWinnerOverlay() {
-    const overlay = document.getElementById('winner-overlay');
-    if (overlay) {
-        overlay.style.display = 'none';
-    }
-}
-
-// ใน method distributePot แก้ไขให้เรียกแสดง overlay
-distributePot(winners) {
-    if (winners.length === 1) {
-        winners[0].chips += this.pot;
-        const winMessage = winners[0].name + ' ชนะเงินกองกลาง ' + this.pot + ' ด้วย ' + winners[0].handRank + '!';
-        this.addLogEntry('<strong>' + winMessage + '</strong>');
-        
-        // แสดง overlay ผู้ชนะ
-        this.showWinnerOverlay(winners[0].name, this.pot);
-    } else {
-        const splitAmount = Math.floor(this.pot / winners.length);
-        const winnerNames = winners.map(w => w.name).join(' และ ');
-        winners.forEach(winner => {
-            winner.chips += splitAmount;
-        });
-        this.addLogEntry(`<strong>เสมอ! ${winnerNames} แบ่งเงินกองกลาง คนละ ${splitAmount}</strong>`);
-        
-        // สำหรับกรณีเสมอ อาจจะไม่แสดง overlay หรือแสดงแบบพิเศษ
-        if (winners.some(winner => winner.id === 'player-user')) {
-            this.showWinnerOverlay('คุณ (เสมอ)', splitAmount);
+    
+    updateTableChips() {
+        const userPlayer = this.pokerGame.players[0];
+        const tableChipsElement = document.getElementById('table-chips');
+        if (tableChipsElement) {
+            tableChipsElement.textContent = userPlayer.chips;
+            
+            if (userPlayer.chips <= 0) {
+                tableChipsElement.style.color = '#ff6b6b';
+                tableChipsElement.style.fontWeight = 'bold';
+            } else if (userPlayer.chips < 500) {
+                tableChipsElement.style.color = '#ffd700';
+            } else {
+                tableChipsElement.style.color = '#90EE90';
+            }
         }
     }
-    this.pot = 0;
-}
-
-// ใน method endRound แก้ไขให้เรียกแสดง overlay
-endRound() {
-    const winner = this.players.find(player => !player.isEliminated && !player.isFolded);
-    if (winner) {
-        winner.chips += this.pot;
-        const winMessage = winner.name + ' ชนะเงินกองกลาง ' + this.pot + '!';
-        this.addLogEntry('<strong>' + winMessage + '</strong>');
+    
+    deposit() {
+        const amountInput = document.getElementById('deposit-amount');
+        const amount = parseInt(amountInput?.value || 0);
+        const userPlayer = this.pokerGame.players[0];
         
-        // แสดง overlay ผู้ชนะ
-        this.showWinnerOverlay(winner.name, this.pot);
-        this.pot = 0;
+        if (isNaN(amount) || amount <= 0) {
+            this.showBankMessage('⚠️ กรุณากรอกจำนวนเงินที่ต้องการฝาก', 'error');
+            return;
+        }
+        
+        if (amount > userPlayer.chips) {
+            this.showBankMessage('❌ ไม่มีชิพบนโต๊ะพอสำหรับฝาก', 'error');
+            return;
+        }
+        
+        userPlayer.chips -= amount;
+        this.bankBalance += amount;
+        
+        this.addTransaction(`ฝากเงิน: ${amount} ชิป (โต๊ะ → ธนาคาร)`);
+        this.showBankMessage(`✅ ฝากเงิน ${amount} ชิปเรียบร้อย`, 'success');
+        
+        this.updateBankDisplay();
+        setTimeout(() => this.pokerGame.updateUI(), 100);
     }
     
-    this.revealAICards();
+    withdraw() {
+        const amountInput = document.getElementById('withdraw-amount');
+        const amount = parseInt(amountInput?.value || 0);
+        const userPlayer = this.pokerGame.players[0];
+        
+        if (isNaN(amount) || amount <= 0) {
+            this.showBankMessage('⚠️ กรุณากรอกจำนวนเงินที่ต้องการถอน', 'error');
+            return;
+        }
+        
+        if (amount > this.bankBalance) {
+            this.showBankMessage('❌ ยอดเงินในธนาคารไม่เพียงพอ', 'error');
+            return;
+        }
+        
+        this.bankBalance -= amount;
+        userPlayer.chips += amount;
+        
+        this.addTransaction(`ถอนเงิน: ${amount} ชิป (ธนาคาร → โต๊ะ)`);
+        this.showBankMessage(`✅ ถอนเงิน ${amount} ชิปเรียบร้อย`, 'success');
+        
+        this.updateBankDisplay();
+        setTimeout(() => this.pokerGame.updateUI(), 100);
+    }
     
-    this.roundCompleted = true;
-    this.updateUI();
+    autoRefill() {
+        const userPlayer = this.pokerGame.players[0];
+        const neededChips = 1500 - userPlayer.chips;
+        
+        if (neededChips <= 0) {
+            this.showBankMessage('ℹ️ มีชิพบนโต๊ะเพียงพอแล้ว', 'info');
+            return;
+        }
+        
+        if (neededChips > this.bankBalance) {
+            this.showBankMessage('❌ ยอดเงินในธนาคารไม่เพียงพอสำหรับเติมชิพ', 'error');
+            return;
+        }
+        
+        this.bankBalance -= neededChips;
+        userPlayer.chips += neededChips;
+        
+        this.addTransaction(`เติมชิพอัตโนมัติ: ${neededChips} ชิป`);
+        this.showBankMessage(`✅ เติมชิพ ${neededChips} ชิปเรียบร้อย`, 'success');
+        
+        this.updateBankDisplay();
+        setTimeout(() => this.pokerGame.updateUI(), 100);
+    }
     
-    document.getElementById('continue-btn').style.display = 'block';
+    validateInputs() {
+        const depositInput = document.getElementById('deposit-amount');
+        const withdrawInput = document.getElementById('withdraw-amount');
+        const depositBtn = document.getElementById('deposit-btn');
+        const withdrawBtn = document.getElementById('withdraw-btn');
+        
+        const depositAmount = parseInt(depositInput?.value || 0);
+        const withdrawAmount = parseInt(withdrawInput?.value || 0);
+        const userPlayer = this.pokerGame.players[0];
+        
+        if (depositInput) depositInput.max = userPlayer.chips;
+        if (withdrawInput) withdrawInput.max = this.bankBalance;
+        
+        if (depositBtn) {
+            depositBtn.disabled = isNaN(depositAmount) || depositAmount <= 0 || depositAmount > userPlayer.chips;
+        }
+        
+        if (withdrawBtn) {
+            withdrawBtn.disabled = isNaN(withdrawAmount) || withdrawAmount <= 0 || withdrawAmount > this.bankBalance;
+        }
+    }
     
-    this.checkGameEnd();
-}
+    startPassiveIncomeTimer() {
+        this.updatePassiveTimerDisplay();
+        
+        this.passiveIncomeInterval = setInterval(() => {
+            this.passiveIncomeTimeLeft--;
+            
+            if (this.passiveIncomeTimeLeft <= 0) {
+                this.givePassiveIncome();
+                this.passiveIncomeTimeLeft = 300;
+            }
+            
+            this.updatePassiveTimerDisplay();
+        }, 1000);
+    }
+    
+    givePassiveIncome() {
+        this.bankBalance += 500;
+        this.addTransaction(`รายได้ passive: +500 ชิป`);
+        this.showBankMessage('💰 ได้รับรายได้ passive 500 ชิป!', 'success');
+        this.updateBankDisplay();
+    }
+    
+    updatePassiveTimerDisplay() {
+        const minutes = Math.floor(this.passiveIncomeTimeLeft / 60);
+        const seconds = this.passiveIncomeTimeLeft % 60;
+        const timerElement = document.getElementById('passive-timer');
+        
+        if (timerElement) {
+            timerElement.textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+    
+    updateBankDisplay() {
+        const balanceElement = document.getElementById('bank-balance');
+        if (balanceElement) {
+            balanceElement.textContent = this.bankBalance;
+        }
+        
+        this.updateTableChips();
+        this.updateTransactionList();
+        this.validateInputs();
+    }
+    
+    updateTransactionList() {
+        const transactionList = document.getElementById('transaction-list');
+        if (transactionList) {
+            transactionList.innerHTML = '';
+            this.transactions.slice(-5).forEach(transaction => {
+                const item = document.createElement('div');
+                item.className = 'transaction-item';
+                item.textContent = transaction;
+                transactionList.appendChild(item);
+            });
+        }
+    }
+    
+    addTransaction(message) {
+        const timestamp = new Date().toLocaleTimeString('th-TH', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        this.transactions.push(`[${timestamp}] ${message}`);
+        
+        if (this.transactions.length > 10) {
+            this.transactions.shift();
+        }
+        
+        this.updateTransactionList();
+    }
+    
+    showBankMessage(message, type = 'info') {
+        setTimeout(() => {
+            let styledMessage = message;
+            if (type === 'success') styledMessage = `<span style="color: #90EE90">${message}</span>`;
+            else if (type === 'error') styledMessage = `<span style="color: #ff6b6b">${message}</span>`;
+            else if (type === 'warning') styledMessage = `<span style="color: #ffd700">${message}</span>`;
+            else if (type === 'info') styledMessage = `<span style="color: #87CEEB">${message}</span>`;
+            
+            this.pokerGame.addLogEntry(styledMessage);
+        }, 150);
+    }
+    
+    destroy() {
+        if (this.passiveIncomeInterval) {
+            clearInterval(this.passiveIncomeInterval);
+        }
+    }
 }
 
-// เริ่มเกมเมื่อหน้าเว็บโหลดเสร็จ
+// ⭐️ การเริ่มต้นระบบที่ปลอดภัย
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
-    window.pokerGame = new TexasHoldemGame();
-
+    console.log('🎮 Initializing game systems...');
+    
+    try {
+        window.pokerGame = new TexasHoldemGame();
+        console.log('✅ Poker game initialized');
+        
+        setTimeout(() => {
+            try {
+                window.bankSystem = new BankSystem(window.pokerGame);
+                console.log('✅ Bank system initialized');
+                console.log('🎯 Both systems running independently');
+            } catch (bankError) {
+                console.error('❌ Bank system error (game still works):', bankError);
+            }
+        }, 1000);
+        
+    } catch (gameError) {
+        console.error('❌ Game initialization failed:', gameError);
+    }
 });
