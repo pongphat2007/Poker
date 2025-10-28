@@ -479,99 +479,131 @@ class TexasHoldemGame {
         this.nextPlayerTurn();
     }
     
-    // ⭐️ แก้ไขใหญ่: ป้องกันการเบิ้ลในเทิร์นผู้เล่น
-    nextPlayerTurn() {
-        console.log('🔧 nextPlayerTurn called - isProcessingTurn:', this.isProcessingTurn);
+    // ⭐️ แก้ไข method nextPlayerTurn ให้สมบูรณ์
+nextPlayerTurn() {
+    console.log('🔧 nextPlayerTurn called - isProcessingTurn:', this.isProcessingTurn);
+    
+    if (this.isProcessingTurn) {
+        console.log('🚫 Blocked: กำลังประมวลผลเทิร์นอยู่');
+        return;
+    }
+    
+    this.isProcessingTurn = true;
+    
+    // ⭐️ ล้าง timeout ก่อนหน้า (ป้องกัน AI decision ทับกัน)
+    if (this.aiDecisionTimeout) {
+        clearTimeout(this.aiDecisionTimeout);
+        this.aiDecisionTimeout = null;
+    }
+    
+    try {
+        const activePlayers = this.players.filter(player => !player.isEliminated && !player.isFolded);
+        console.log('👥 Active players:', activePlayers.map(p => p.name));
         
-        if (this.isProcessingTurn) {
-            console.log('🚫 Blocked: กำลังประมวลผลเทิร์นอยู่');
+        if (activePlayers.length === 1) {
+            console.log('มีผู้เล่นเหลือคนเดียว จบรอบ');
+            this.endRound();
+            this.isProcessingTurn = false;
             return;
         }
         
-        this.isProcessingTurn = true;
+        // ตรวจสอบว่า betting round เสร็จสิ้นหรือยัง
+        let playersActed = 0;
+        this.players.forEach(player => {
+            if (!player.isEliminated && !player.isFolded && 
+                (player.currentBet === this.currentBet || player.chips === 0)) {
+                playersActed++;
+            }
+        });
         
-        // ⭐️ ล้าง timeout ก่อนหน้า (ป้องกัน AI decision ทับกัน)
-        if (this.aiDecisionTimeout) {
-            clearTimeout(this.aiDecisionTimeout);
-            this.aiDecisionTimeout = null;
-        }
+        console.log(`Players acted: ${playersActed}/${activePlayers.length}`);
         
-        try {
-            const activePlayers = this.players.filter(player => !player.isEliminated && !player.isFolded);
-            
-            if (activePlayers.length === 1) {
-                console.log('มีผู้เล่นเหลือคนเดียว จบรอบ');
-                this.endRound();
-                this.isProcessingTurn = false;
-                return;
-            }
-            
-            // ตรวจสอบว่า betting round เสร็จสิ้นหรือยัง
-            let playersActed = 0;
-            this.players.forEach(player => {
-                if (!player.isEliminated && !player.isFolded && 
-                    (player.currentBet === this.currentBet || player.chips === 0)) {
-                    playersActed++;
-                }
-            });
-            
-            if (playersActed === activePlayers.length && activePlayers.length > 1) {
-                console.log('ทุกคนเดิมพันเสร็จแล้ว ไปเฟสถัดไป');
-                this.bettingRoundComplete = true;
-                this.nextGamePhase();
-                this.isProcessingTurn = false;
-                return;
-            }
-            
-            // หาผู้เล่นคนต่อไป
-            let attempts = 0;
-            do {
-                this.currentPlayerIndex = (this.currentPlayerIndex + 1) % 4;
-                attempts++;
-                if (attempts > 10) {
-                    console.error('❌ Infinite loop in nextPlayerTurn');
-                    this.isProcessingTurn = false;
-                    return;
-                }
-            } while ((this.players[this.currentPlayerIndex].isFolded || 
-                     this.players[this.currentPlayerIndex].isEliminated || 
-                     this.players[this.currentPlayerIndex].chips === 0) && 
-                     activePlayers.length > 1);
-            
-            const currentPlayer = this.players[this.currentPlayerIndex];
-            console.log('เทิร์นของผู้เล่น:', currentPlayer.name);
-            
-            this.updatePlayerStatuses(currentPlayer);
-            
-            if (currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-                console.log('AI decision for:', currentPlayer.name);
-                this.showAIThinking(currentPlayer);
-                
-                // ⭐️ ใช้ timeout ที่สามารถล้างได้
-                this.aiDecisionTimeout = setTimeout(() => {
-                    this.hideAIThinking(currentPlayer);
-                    this.makeAIDecision(currentPlayer);
-                    this.isProcessingTurn = false;
-                    this.aiDecisionTimeout = null;
-                }, 1500);
-                
-            } else if (!currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-                console.log('ผู้เล่นจริงเล่น');
-                this.enablePlayerActions();
-                this.isProcessingTurn = false;
-            } else {
-                console.log('ผู้เล่นไม่สามารถเล่นได้ ไปเทิร์นถัดไป');
-                this.isProcessingTurn = false;
-                setTimeout(() => this.nextPlayerTurn(), 500);
-            }
-            
-            this.updateUI();
-            
-        } catch (error) {
-            console.error('❌ Error in nextPlayerTurn:', error);
+        if (playersActed === activePlayers.length && activePlayers.length > 1) {
+            console.log('ทุกคนเดิมพันเสร็จแล้ว ไปเฟสถัดไป');
+            this.bettingRoundComplete = true;
+            this.nextGamePhase();
             this.isProcessingTurn = false;
+            return;
         }
+        
+        // ⭐️ แก้ไข: หาผู้เล่นคนต่อไปแบบปลอดภัย
+        let nextPlayerFound = false;
+        let attempts = 0;
+        const totalPlayers = this.players.length;
+        
+        while (!nextPlayerFound && attempts < totalPlayers * 2) {
+            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % totalPlayers;
+            const currentPlayer = this.players[this.currentPlayerIndex];
+            
+            console.log(`Checking player: ${currentPlayer.name}, Folded: ${currentPlayer.isFolded}, Eliminated: ${currentPlayer.isEliminated}, Chips: ${currentPlayer.chips}`);
+            
+            if (!currentPlayer.isFolded && 
+                !currentPlayer.isEliminated && 
+                currentPlayer.chips > 0) {
+                nextPlayerFound = true;
+                console.log(`✅ Next player found: ${currentPlayer.name}`);
+            }
+            
+            attempts++;
+            
+            if (attempts >= totalPlayers * 2) {
+                console.error('❌ Cannot find next player after maximum attempts');
+                this.isProcessingTurn = false;
+                return;
+            }
+        }
+        
+        const currentPlayer = this.players[this.currentPlayerIndex];
+        console.log('🎯 Turn of player:', currentPlayer.name);
+        
+        this.updatePlayerStatuses(currentPlayer);
+        
+        if (currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
+            console.log('🤖 AI decision for:', currentPlayer.name);
+            this.showAIThinking(currentPlayer);
+            
+            // ⭐️ ใช้ timeout ที่สามารถล้างได้และมี fallback
+            this.aiDecisionTimeout = setTimeout(() => {
+                console.log(`🤖 Executing AI decision for: ${currentPlayer.name}`);
+                this.hideAIThinking(currentPlayer);
+                
+                try {
+                    this.makeAIDecision(currentPlayer);
+                } catch (aiError) {
+                    console.error(`❌ AI decision error for ${currentPlayer.name}:`, aiError);
+                    // ถ้า AI decision error ให้ fold อัตโนมัติ
+                    this.playerFold(currentPlayer);
+                }
+                
+                this.isProcessingTurn = false;
+                this.aiDecisionTimeout = null;
+            }, 1000 + Math.random() * 1000); // ⭐️ เพิ่ม randomness เพื่อป้องกัน timing issues
+                
+        } else if (!currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
+            console.log('👤 Human player turn:', currentPlayer.name);
+            this.enablePlayerActions();
+            this.isProcessingTurn = false;
+        } else {
+            console.log('⏩ Player cannot play, skipping to next turn:', currentPlayer.name);
+            this.isProcessingTurn = false;
+            // ⭐️ ใช้ setTimeout เพื่อป้องกัน call stack overflow
+            setTimeout(() => this.nextPlayerTurn(), 100);
+        }
+        
+        this.updateUI();
+        
+    } catch (error) {
+        console.error('❌ Critical error in nextPlayerTurn:', error);
+        this.isProcessingTurn = false;
+        
+        // ⭐️ Fallback: พยายามเรียก nextPlayerTurn อีกครั้งหลังจาก delay
+        setTimeout(() => {
+            if (!this.isProcessingTurn) {
+                this.nextPlayerTurn();
+            }
+        }, 500);
     }
+}
     
     showAIThinking(player) {
         const statusId = player.id === 'player-user' ? 'status-user' : `status${player.id.slice(-1)}`;
@@ -1653,3 +1685,4 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('❌ Game initialization failed:', gameError);
     }
 });
+
