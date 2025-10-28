@@ -84,10 +84,11 @@ class TexasHoldemGame {
         this.isProcessingTurn = false;
         this.isDealingCards = false;
         this.aiDecisionTimeout = null;
+        this.bettingRoundStarted = false;
         
         this.initializeEventListeners();
         this.initializeDeck();
-        console.log('Texas Holdem Game initialized - Anti-Bug Mode');
+        console.log('Texas Holdem Game initialized - Ultimate Anti-Bug Mode');
         
         this.checkRequiredElements();
     }
@@ -175,6 +176,7 @@ class TexasHoldemGame {
             this.gameOver = false;
             this.roundCompleted = false;
             this.showAICards = false;
+            this.bettingRoundStarted = false;
             
             this.updateUI();
             
@@ -466,144 +468,534 @@ class TexasHoldemGame {
     }
     
     startBettingRound() {
-        this.currentPlayerIndex = this.findNextActivePlayer(this.findNextActivePlayer(this.dealerIndex));
+        console.log('💰 Starting betting round, phase:', this.gamePhase);
+        this.bettingRoundStarted = true;
         this.bettingRoundComplete = false;
         
+        // ⭐️ รีเซ็ตเฉพาะผู้เล่นที่ยังเล่นอยู่และมีชิพ
         this.players.forEach(player => {
             if (!player.isEliminated && !player.isFolded && player.chips > 0) {
                 player.currentBet = 0;
             }
         });
         
+        // ⭐️ เริ่มจากผู้เล่นถัดจาก Big Blind
+        this.currentPlayerIndex = this.findNextActivePlayer(this.findNextActivePlayer(this.dealerIndex));
+        
         this.updateUI();
-        this.nextPlayerTurn();
+        
+        // ⭐️ เรียก nextPlayerTurn โดยตรงโดยไม่ใช้ setTimeout
+        setTimeout(() => {
+            this.nextPlayerTurn();
+        }, 1000);
     }
     
-    // ⭐️ แก้ไข method nextPlayerTurn ให้สมบูรณ์
+   // ⭐️ แก้ไขใหญ่: วิธีที่ปลอดภัยที่สุดสำหรับ nextPlayerTurn
 nextPlayerTurn() {
-    console.log('🔧 nextPlayerTurn called - isProcessingTurn:', this.isProcessingTurn);
+    console.log('🎯 nextPlayerTurn called - Phase:', this.gamePhase, 
+                'Processing:', this.isProcessingTurn, 
+                'GameStarted:', this.gameStarted);
+    
+    // ⭐️ เพิ่มตัวนับป้องกัน infinite loop
+    if (!this.turnAttempts) this.turnAttempts = 0;
+    this.turnAttempts++;
+    
+    // ⭐️ ตรวจสอบสถานะเกมก่อน
+    if (!this.gameStarted || this.gameOver) {
+        console.log('🚫 Game not active, cannot proceed');
+        this.isProcessingTurn = false;
+        this.turnAttempts = 0;
+        return;
+    }
     
     if (this.isProcessingTurn) {
-        console.log('🚫 Blocked: กำลังประมวลผลเทิร์นอยู่');
+        console.log('⏳ Already processing turn, waiting...');
+        // ⚠️ แก้ไข: ไม่ return แต่รอให้เทิร์นปัจจุบันจบ
+        setTimeout(() => {
+            if (this.turnAttempts < 5) {
+                this.nextPlayerTurn();
+            } else {
+                console.error('🔴 Too many processing attempts, forcing reset');
+                this.isProcessingTurn = false;
+                this.turnAttempts = 0;
+            }
+        }, 500);
         return;
     }
     
     this.isProcessingTurn = true;
     
-    // ⭐️ ล้าง timeout ก่อนหน้า (ป้องกัน AI decision ทับกัน)
+    // ⭐️ ล้าง timeout ก่อนหน้าเสมอ
     if (this.aiDecisionTimeout) {
         clearTimeout(this.aiDecisionTimeout);
         this.aiDecisionTimeout = null;
     }
     
     try {
-        const activePlayers = this.players.filter(player => !player.isEliminated && !player.isFolded);
-        console.log('👥 Active players:', activePlayers.map(p => p.name));
+        // ⭐️ รับ active players ปัจจุบัน
+        const activePlayers = this.players.filter(player => 
+            !player.isEliminated && !player.isFolded
+        );
         
+        console.log('👥 Active players:', activePlayers.length, 
+                   'Names:', activePlayers.map(p => p.name));
+        
+        // ⭐️ ตรวจสอบว่ามีผู้เล่นเหลือคนเดียว
         if (activePlayers.length === 1) {
-            console.log('มีผู้เล่นเหลือคนเดียว จบรอบ');
+            console.log('🎉 Only one player left, ending round');
+            this.isProcessingTurn = false;
+            this.turnAttempts = 0;
             this.endRound();
-            this.isProcessingTurn = false;
-            return;
+            return; // ⭐️ เพิ่ม return เพื่อหยุดการทำงาน
         }
         
-        // ตรวจสอบว่า betting round เสร็จสิ้นหรือยัง
-        let playersActed = 0;
-        this.players.forEach(player => {
-            if (!player.isEliminated && !player.isFolded && 
-                (player.currentBet === this.currentBet || player.chips === 0)) {
-                playersActed++;
-            }
-        });
+        // ⭐️ ตรวจสอบ betting round completion แบบใหม่ที่แม่นยำ
+        const bettingComplete = this.checkBettingRoundComplete();
+        console.log('💰 Betting complete check:', bettingComplete);
         
-        console.log(`Players acted: ${playersActed}/${activePlayers.length}`);
-        
-        if (playersActed === activePlayers.length && activePlayers.length > 1) {
-            console.log('ทุกคนเดิมพันเสร็จแล้ว ไปเฟสถัดไป');
+        if (bettingComplete) {
+            console.log('✅ Betting round complete, moving to next phase');
+            this.isProcessingTurn = false;
+            this.turnAttempts = 0;
             this.bettingRoundComplete = true;
-            this.nextGamePhase();
+            this.nextGamePhase(); // ⭐️ เรียกครั้งเดียว
+            return; // ⭐️ เพิ่ม return สำคัญ!
+        }
+        
+        // ⭐️ หาผู้เล่นคนต่อไปแบบปลอดภัย
+        const nextPlayer = this.findNextActivePlayerForBetting();
+        if (!nextPlayer) {
+            console.log('❌ No next player found, checking round completion again');
             this.isProcessingTurn = false;
+            
+            // ⭐️ ตรวจสอบอีกครั้งเพื่อความปลอดภัย
+            const finalCheck = this.checkBettingRoundComplete();
+            if (finalCheck) {
+                this.bettingRoundComplete = true;
+                this.nextGamePhase();
+            } else {
+                // ⭐️ Fallback: ส่งเทิร์นให้ผู้เล่นคนต่อไปที่หาได้
+                this.forceFindNextPlayer();
+            }
+            this.turnAttempts = 0;
             return;
         }
         
-        // ⭐️ แก้ไข: หาผู้เล่นคนต่อไปแบบปลอดภัย
-        let nextPlayerFound = false;
-        let attempts = 0;
-        const totalPlayers = this.players.length;
+        this.currentPlayerIndex = this.players.indexOf(nextPlayer);
+        console.log('🎯 Current player:', nextPlayer.name, 
+                   'Index:', this.currentPlayerIndex);
         
-        while (!nextPlayerFound && attempts < totalPlayers * 2) {
-            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % totalPlayers;
-            const currentPlayer = this.players[this.currentPlayerIndex];
-            
-            console.log(`Checking player: ${currentPlayer.name}, Folded: ${currentPlayer.isFolded}, Eliminated: ${currentPlayer.isEliminated}, Chips: ${currentPlayer.chips}`);
-            
-            if (!currentPlayer.isFolded && 
-                !currentPlayer.isEliminated && 
-                currentPlayer.chips > 0) {
-                nextPlayerFound = true;
-                console.log(`✅ Next player found: ${currentPlayer.name}`);
-            }
-            
-            attempts++;
-            
-            if (attempts >= totalPlayers * 2) {
-                console.error('❌ Cannot find next player after maximum attempts');
-                this.isProcessingTurn = false;
-                return;
-            }
-        }
+        // ⭐️ รีเซ็ตตัวนับเมื่อพบผู้เล่นใหม่
+        this.turnAttempts = 0;
         
-        const currentPlayer = this.players[this.currentPlayerIndex];
-        console.log('🎯 Turn of player:', currentPlayer.name);
+        this.updatePlayerStatuses(nextPlayer);
         
-        this.updatePlayerStatuses(currentPlayer);
-        
-        if (currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-            console.log('🤖 AI decision for:', currentPlayer.name);
-            this.showAIThinking(currentPlayer);
-            
-            // ⭐️ ใช้ timeout ที่สามารถล้างได้และมี fallback
-            this.aiDecisionTimeout = setTimeout(() => {
-                console.log(`🤖 Executing AI decision for: ${currentPlayer.name}`);
-                this.hideAIThinking(currentPlayer);
-                
-                try {
-                    this.makeAIDecision(currentPlayer);
-                } catch (aiError) {
-                    console.error(`❌ AI decision error for ${currentPlayer.name}:`, aiError);
-                    // ถ้า AI decision error ให้ fold อัตโนมัติ
-                    this.playerFold(currentPlayer);
-                }
-                
-                this.isProcessingTurn = false;
-                this.aiDecisionTimeout = null;
-            }, 1000 + Math.random() * 1000); // ⭐️ เพิ่ม randomness เพื่อป้องกัน timing issues
-                
-        } else if (!currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-            console.log('👤 Human player turn:', currentPlayer.name);
-            this.enablePlayerActions();
-            this.isProcessingTurn = false;
+        // ⭐️ จัดการเทิร์นของผู้เล่น
+        if (nextPlayer.isAI) {
+            console.log('🤖 AI turn for:', nextPlayer.name);
+            this.handleAITurn(nextPlayer);
         } else {
-            console.log('⏩ Player cannot play, skipping to next turn:', currentPlayer.name);
-            this.isProcessingTurn = false;
-            // ⭐️ ใช้ setTimeout เพื่อป้องกัน call stack overflow
-            setTimeout(() => this.nextPlayerTurn(), 100);
+            console.log('👤 Human turn for:', nextPlayer.name);
+            this.handleHumanTurn(nextPlayer);
         }
         
         this.updateUI();
         
     } catch (error) {
-        console.error('❌ Critical error in nextPlayerTurn:', error);
+        console.error('💥 Critical error in nextPlayerTurn:', error);
         this.isProcessingTurn = false;
+        this.turnAttempts = 0;
         
-        // ⭐️ Fallback: พยายามเรียก nextPlayerTurn อีกครั้งหลังจาก delay
+        // ⭐️ Fallback ที่ปลอดภัยที่สุด
         setTimeout(() => {
-            if (!this.isProcessingTurn) {
+            if (!this.isProcessingTurn && this.turnAttempts < 3) {
+                console.log('🔄 Attempting recovery...');
                 this.nextPlayerTurn();
+            } else {
+                console.error('🔴 Recovery failed, forcing round end');
+                this.endRound();
             }
-        }, 500);
+        }, 1000);
     }
 }
+
+// ⭐️ เพิ่มเมธอดช่วยเหลือสำหรับกรณีหา next player ไม่เจอ
+forceFindNextPlayer() {
+    console.log('🔧 Force finding next player...');
+    
+    const activePlayers = this.players.filter(player => 
+        !player.isEliminated && !player.isFolded && player.chips > 0
+    );
+    
+    if (activePlayers.length === 0) {
+        console.log('❌ No active players found in force find');
+        this.endRound();
+        return;
+    }
+    
+    // ⭐️ หาผู้เล่นคนแรกที่ยังเล่นได้
+    const firstActive = activePlayers[0];
+    this.currentPlayerIndex = this.players.indexOf(firstActive);
+    console.log('✅ Force selected:', firstActive.name);
+    
+    this.updatePlayerStatuses(firstActive);
+    
+    if (firstActive.isAI) {
+        this.handleAITurn(firstActive);
+    } else {
+        this.handleHumanTurn(firstActive);
+    }
+}
+
+// ⭐️ วิธีใหม่: ตรวจสอบการจบ betting round อย่างแม่นยำ
+checkBettingRoundComplete() {
+    const activePlayers = this.players.filter(player => 
+        !player.isEliminated && !player.isFolded && player.chips > 0
+    );
+    
+    console.log(`📊 Betting check - Active: ${activePlayers.length}, CurrentBet: ${this.currentBet}`);
+    
+    if (activePlayers.length <= 1) {
+        console.log('✅ Only one active player, betting complete');
+        return true;
+    }
+    
+    // ⭐️ ตรวจสอบเงื่อนไขให้ละเอียดยิ่งขึ้น
+    let playersCompleted = 0;
+    let playersAllIn = 0;
+    
+    activePlayers.forEach(player => {
+        const hasActed = player.currentBet === this.currentBet;
+        const isAllIn = player.chips === 0 && player.currentBet > 0;
+        const canAct = player.chips > 0 && player.currentBet < this.currentBet;
+        
+        console.log(`   ${player.name}: Bet=${player.currentBet}, Chips=${player.chips}, HasActed=${hasActed}, AllIn=${isAllIn}, CanAct=${canAct}`);
+        
+        if (hasActed || isAllIn || !canAct) {
+            playersCompleted++;
+        }
+        
+        if (isAllIn) {
+            playersAllIn++;
+        }
+    });
+    
+    console.log(`📈 Completion: ${playersCompleted}/${activePlayers.length}, All-in: ${playersAllIn}`);
+    
+    // ⭐️ เงื่อนไขการจบ betting round:
+    // 1. ทุกคนเดิมพันเท่ากัน หรือหมดชิพ
+    // 2. มีอย่างน้อย 2 คนที่ยังเล่นอยู่
+    // 3. ถ้ามีคน All-in มากกว่า 1 คน ให้จบเทิร์น
+    const allPlayersActed = playersCompleted === activePlayers.length;
+    const multipleAllIn = playersAllIn >= 2;
+    const hasBettingOccurred = this.currentBet > 0 || activePlayers.some(p => p.currentBet > 0);
+    
+    const shouldComplete = (allPlayersActed && hasBettingOccurred) || multipleAllIn;
+    
+    console.log(`🎯 Should complete: ${shouldComplete} (allActed: ${allPlayersActed}, multipleAllIn: ${multipleAllIn}, hasBetting: ${hasBettingOccurred})`);
+    
+    return shouldComplete;
+}
+
+// ⭐️ วิธีใหม่สำหรับหาผู้เล่นคนต่อไป
+findNextActivePlayerForBetting() {
+    console.log('🔍 Finding next player for betting...');
+    
+    const activePlayers = this.players.filter(player => 
+        !player.isEliminated && !player.isFolded && player.chips > 0
+    );
+    
+    if (activePlayers.length === 0) {
+        console.log('❌ No active players found');
+        return null;
+    }
+    
+    // ⭐️ หาผู้เล่นที่ยังต้องดำเนินการ (ยังไม่ได้เดิมพันเท่าคนอื่น)
+    const playersToAct = activePlayers.filter(player => 
+        player.currentBet < this.currentBet && player.chips > 0
+    );
+    
+    console.log(`🎯 Players to act: ${playersToAct.length}`, 
+                playersToAct.map(p => `${p.name} (bet: ${p.currentBet}/${this.currentBet}, chips: ${p.chips})`));
+    
+    if (playersToAct.length === 0) {
+        console.log('✅ All players have acted');
+        return null;
+    }
+    
+    // ⭐️ หาผู้เล่นคนต่อไปจากตำแหน่งปัจจุบัน
+    let currentIndex = this.currentPlayerIndex;
+    let attempts = 0;
+    const maxAttempts = this.players.length * 2;
+    
+    console.log(`🔄 Starting search from index: ${currentIndex}, player: ${this.players[currentIndex]?.name}`);
+    
+    while (attempts < maxAttempts) {
+        currentIndex = (currentIndex + 1) % this.players.length;
+        const candidate = this.players[currentIndex];
+        
+        console.log(`   Checking index ${currentIndex}: ${candidate.name} - Eliminated: ${candidate.isEliminated}, Folded: ${candidate.isFolded}, Chips: ${candidate.chips}, CurrentBet: ${candidate.currentBet}/${this.currentBet}`);
+        
+        // ⭐️ เงื่อนไข: ไม่ถูกคัดออก, ไม่ fold, มีชิพ, และยังไม่ได้เดิมพันเท่าที่ควร
+        if (!candidate.isEliminated && 
+            !candidate.isFolded && 
+            candidate.chips > 0 && 
+            candidate.currentBet < this.currentBet) {
+            console.log(`✅ Found next player: ${candidate.name} at index ${currentIndex}`);
+            return candidate;
+        }
+        
+        attempts++;
+        
+        // ⭐️ ตรวจสอบว่าเราหมดวงแล้ว
+        if (attempts >= this.players.length && playersToAct.length > 0) {
+            console.log('🔄 Looped through all players, taking first available');
+            return playersToAct[0];
+        }
+    }
+    
+    console.log('❌ Could not find next player after maximum attempts');
+    return playersToAct[0] || null;
+}
+
+// ⭐️ วิธีใหม่: จัดการเทิร์นของ AI
+handleAITurn(player) {
+    console.log(`🤖 Handling AI turn for: ${player.name}`);
+    this.showAIThinking(player);
+    
+    // ⭐️ ใช้ Promise และ async/await สำหรับการจัดการที่แม่นยำ
+    this.aiDecisionTimeout = setTimeout(async () => {
+        try {
+            this.hideAIThinking(player);
+            await this.executeAIDecision(player);
+        } catch (error) {
+            console.error(`❌ AI execution error for ${player.name}:`, error);
+            this.playerFold(player); // Fallback ที่ปลอดภัย
+        } finally {
+            // ⭐️ รอสักครู่ก่อนเริ่มเทิร์นถัดไป
+            setTimeout(() => {
+                this.isProcessingTurn = false;
+                this.aiDecisionTimeout = null;
+                this.nextPlayerTurn();
+            }, 800);
+        }
+    }, 1500);
+}
+
+// ⭐️ วิธีใหม่: จัดการเทิร์นของผู้เล่นจริง
+handleHumanTurn(player) {
+    console.log(`👤 Handling Human turn for: ${player.name}`);
+    this.enablePlayerActions();
+    // ⭐️ ไม่รีเซ็ต isProcessingTurn ที่นี่ เพราะรอการดำเนินการจากผู้เล่น
+    // isProcessingTurn จะถูกรีเซ็ตเมื่อผู้เล่นดำเนินการ (fold, call, raise, check)
+}
+
+// ⭐️ ปรับปรุงเมธอดการดำเนินการของผู้เล่น
+playerFold(player) {
+    console.log(`🃏 ${player.name} folds`);
+    player.isFolded = true;
+    player.status = 'folded';
+    this.addLogEntry(player.name + ' Fold');
+    
+    this.isProcessingTurn = false; // ⭐️ รีเซ็ต flag
+    this.disablePlayerActions();
+    
+    // ⭐️ เรียก next turn โดยตรงโดยไม่รอ
+    setTimeout(() => {
+        this.nextPlayerTurn();
+    }, 500);
+}
+
+playerCheck(player) {
+    console.log(`✅ ${player.name} checks`);
+    player.status = 'checked';
+    this.addLogEntry(player.name + ' Check');
+    
+    this.isProcessingTurn = false; // ⭐️ รีเซ็ต flag
+    this.disablePlayerActions();
+    
+    setTimeout(() => {
+        this.nextPlayerTurn();
+    }, 500);
+}
+
+playerCall(player) {
+    console.log(`📞 ${player.name} calls`);
+    const callAmount = this.currentBet - player.currentBet;
+    
+    // ⭐️ ตรวจสอบว่า callAmount มากกว่า 0 หรือไม่
+    if (callAmount <= 0) {
+        console.log('ℹ️ Call amount is 0, converting to check');
+        this.playerCheck(player);
+        return;
+    }
+    
+    const actualCallAmount = Math.min(callAmount, player.chips);
+    
+    if (player.chips >= actualCallAmount) {
+        player.chips -= actualCallAmount;
+        player.currentBet += actualCallAmount;
+        this.pot += actualCallAmount;
+        
+        if (actualCallAmount < callAmount) {
+            this.addLogEntry(player.name + ' All-in! เรียก ' + actualCallAmount);
+        } else {
+            this.addLogEntry(player.name + ' Call ' + actualCallAmount);
+        }
+        
+        this.isProcessingTurn = false; // ⭐️ รีเซ็ต flag
+        this.disablePlayerActions();
+        
+        setTimeout(() => {
+            this.nextPlayerTurn();
+        }, 500);
+    } else {
+        this.playerFold(player);
+    }
+}
+
+playerRaise(player, amount) {
+    console.log(`⬆️ ${player.name} raises to ${amount}`);
+    const actualAmount = Math.min(amount, player.chips);
+    const totalBet = player.currentBet + actualAmount;
+    
+    if (player.chips >= actualAmount) {
+        player.chips -= actualAmount;
+        player.currentBet = totalBet;
+        this.pot += actualAmount;
+        this.currentBet = Math.max(this.currentBet, totalBet);
+        
+        if (actualAmount < amount) {
+            this.addLogEntry(player.name + ' All-in! เป็น ' + totalBet);
+        } else {
+            this.addLogEntry(player.name + ' Raise เป็น ' + totalBet);
+        }
+        
+        this.isProcessingTurn = false; // ⭐️ รีเซ็ต flag
+        this.disablePlayerActions();
+        
+        setTimeout(() => {
+            this.nextPlayerTurn();
+        }, 500);
+    } else {
+        this.playerCall(player);
+    }
+}
+    // ⭐️ วิธีใหม่: ตรวจสอบการจบ betting round อย่างแม่นยำ
+    checkBettingRoundComplete() {
+        const activePlayers = this.players.filter(player => 
+            !player.isEliminated && !player.isFolded && player.chips > 0
+        );
+        
+        if (activePlayers.length <= 1) return true;
+        
+        // ⭐️ นับผู้เล่นที่ทำการเดิมพันเสร็จแล้ว
+        let playersCompleted = 0;
+        
+        activePlayers.forEach(player => {
+            // ผู้เล่นที่เดิมพันเท่ากับ currentBet หรือหมดชิพแล้ว
+            if (player.currentBet === this.currentBet || player.chips === 0) {
+                playersCompleted++;
+            }
+        });
+        
+        console.log(`📊 Betting check: ${playersCompleted}/${activePlayers.length} players completed`);
+        
+        // ⭐️ ทุกคนเดิมพันเสร็จและมีอย่างน้อย 2 คนที่ยังเล่นอยู่
+        return playersCompleted === activePlayers.length;
+    }
+    
+    // ⭐️ แก้ไขใหญ่ที่สุด: วิธีใหม่สำหรับหาผู้เล่นคนต่อไป
+    findNextActivePlayerForBetting() {
+        console.log('🔍 Finding next player for betting...');
+        
+        const activePlayers = this.players.filter(player => 
+            !player.isEliminated && !player.isFolded && player.chips > 0
+        );
+        
+        if (activePlayers.length === 0) {
+            console.log('❌ No active players found');
+            return null;
+        }
+        
+        // ⭐️ หาผู้เล่นคนต่อไปที่ยังไม่ได้เดิมพันเท่าคนอื่น
+        const playersToAct = activePlayers.filter(player => 
+            player.currentBet < this.currentBet
+        );
+        
+        console.log(`🎯 Players to act: ${playersToAct.length}`, playersToAct.map(p => p.name));
+        
+        if (playersToAct.length === 0) {
+            console.log('✅ All players have acted');
+            return null;
+        }
+        
+        // ⭐️ หาผู้เล่นคนต่อไปจากตำแหน่งปัจจุบัน
+        let startIndex = this.currentPlayerIndex;
+        let attempts = 0;
+        const maxAttempts = this.players.length * 2;
+        
+        while (attempts < maxAttempts) {
+            startIndex = (startIndex + 1) % this.players.length;
+            const candidate = this.players[startIndex];
+            
+            // ⭐️ เงื่อนไข: ไม่ถูกคัดออก, ไม่ fold, มีชิพ, และยังไม่ได้เดิมพันเท่าที่ควร
+            if (!candidate.isEliminated && 
+                !candidate.isFolded && 
+                candidate.chips > 0 && 
+                candidate.currentBet < this.currentBet) {
+                console.log(`✅ Found next player: ${candidate.name}`);
+                return candidate;
+            }
+            
+            attempts++;
+        }
+        
+        console.log('❌ Could not find next player after maximum attempts');
+        return playersToAct[0] || null;
+    }
+    
+    // ⭐️ วิธีใหม่: จัดการเทิร์นของ AI
+    handleAITurn(player) {
+        console.log(`🤖 AI turn: ${player.name}`);
+        this.showAIThinking(player);
+        
+        // ⭐️ ใช้ Promise และ async/await สำหรับการจัดการที่แม่นยำ
+        this.aiDecisionTimeout = setTimeout(async () => {
+            try {
+                this.hideAIThinking(player);
+                await this.executeAIDecision(player);
+            } catch (error) {
+                console.error(`❌ AI execution error for ${player.name}:`, error);
+                this.playerFold(player); // Fallback ที่ปลอดภัย
+            } finally {
+                this.isProcessingTurn = false;
+                this.aiDecisionTimeout = null;
+            }
+        }, 1500);
+    }
+    
+    // ⭐️ วิธีใหม่: จัดการเทิร์นของผู้เล่นจริง
+    handleHumanTurn(player) {
+        console.log(`👤 Human turn: ${player.name}`);
+        this.enablePlayerActions();
+        this.isProcessingTurn = false;
+    }
+    
+    // ⭐️ วิธีใหม่: ปฏิบัติการตัดสินใจของ AI ด้วย Promise
+    async executeAIDecision(player) {
+        return new Promise((resolve) => {
+            try {
+                const decision = this.makeAIDecision(player);
+                resolve(decision);
+            } catch (error) {
+                console.error(`❌ AI decision failed for ${player.name}:`, error);
+                // ⭐️ Fallback ที่ปลอดภัยที่สุด
+                this.playerFold(player);
+                resolve();
+            }
+        });
+    }
     
     showAIThinking(player) {
         const statusId = player.id === 'player-user' ? 'status-user' : `status${player.id.slice(-1)}`;
@@ -653,172 +1045,358 @@ nextPlayerTurn() {
         });
     }
     
-   // ⭐️ แก้ไข method makeAIDecision ให้มี fallback
+// 🌟 COSMIC GOD AI - แต่ให้ CALL ในเทิร์นแรกทุกคน
 makeAIDecision(player) {
-    console.log(`🤖 AI ${player.name} making decision...`);
+    console.log(`🌠 ${player.name} activating UNIVERSE GOD MODE...`);
     
-    // ⭐️ ตรวจสอบว่าเกมยังดำเนินอยู่
-    if (!this.gameStarted || this.gameOver) {
-        console.log('🚫 Game not active, AI cannot make decision');
+    if (!this.gameStarted || this.gameOver || player.isFolded || player.isEliminated) {
         return;
     }
     
     try {
-        const handStrength = this.calculateHandStrength(player);
-        const positionFactor = this.calculatePositionFactor(player);
-        const potOdds = this.calculatePotOdds(player);
-        const bluffFactor = this.calculateBluffFactor(player);
-        
-        let decisionScore = handStrength * 0.5 + positionFactor * 0.2 + potOdds * 0.2 + bluffFactor * 0.1;
-        
-        if (player.personality === 'aggressive') {
-            decisionScore *= 1.2;
-        } else if (player.personality === 'conservative') {
-            decisionScore *= 0.8;
+        // 🎯 เงื่อนไขพิเศษ: ถ้าเป็นเทิร์นแรกของรอบ ให้ CALL ทุกคน
+        if (this.isFirstTurnOfRound(player)) {
+            console.log(`🔄 ${player.name} FIRST TURN - FORCING CALL`);
+            this.playerCall(player);
+            return;
         }
         
-        console.log(`🤖 ${player.name} decision score: ${decisionScore.toFixed(2)}`);
-        
-        const callAmount = this.currentBet - player.currentBet;
-        const canCall = player.chips >= callAmount;
-        
-        if (decisionScore < 0.3) {
-            // Weak hand
-            if (callAmount > 0 && canCall) {
-                // มีเงินพอเรียกแต่มืออ่อน -> Fold
-                console.log(`🤖 ${player.name} decision: FOLD (weak hand)`);
-                this.playerFold(player);
-            } else if (callAmount === 0) {
-                // ไม่ต้องเรียก -> Check
-                console.log(`🤖 ${player.name} decision: CHECK (weak hand, no bet)`);
-                this.playerCheck(player);
-            } else {
-                // เงินไม่พอเรียก -> Fold
-                console.log(`🤖 ${player.name} decision: FOLD (weak hand, cannot call)`);
-                this.playerFold(player);
-            }
-        } else if (decisionScore < 0.6) {
-            // Medium hand
-            if (callAmount > 0 && canCall) {
-                // มีเงินพอเรียก -> Call
-                console.log(`🤖 ${player.name} decision: CALL (medium hand)`);
-                this.playerCall(player);
-            } else if (callAmount === 0) {
-                // ไม่ต้องเรียก -> Check หรือ Raise น้อยๆ
-                if (Math.random() < 0.3 && player.chips > 0) {
-                    const raiseAmount = Math.min(20, Math.floor(player.chips * 0.1));
-                    console.log(`🤖 ${player.name} decision: RAISE ${raiseAmount} (medium hand)`);
-                    this.playerRaise(player, raiseAmount);
-                } else {
-                    console.log(`🤖 ${player.name} decision: CHECK (medium hand)`);
-                    this.playerCheck(player);
-                }
-            } else {
-                // เงินไม่พอเรียก -> Fold
-                console.log(`🤖 ${player.name} decision: FOLD (medium hand, cannot call)`);
-                this.playerFold(player);
-            }
-        } else {
-            // Strong hand
-            if (callAmount > 0 && canCall) {
-                // มีเงินพอเรียก -> Call หรือ Raise
-                if (Math.random() < 0.6 && player.chips > callAmount) {
-                    const raiseAmount = Math.min(
-                        Math.floor(handStrength * player.chips * 0.4),
-                        player.chips
-                    );
-                    console.log(`🤖 ${player.name} decision: RAISE ${raiseAmount} (strong hand)`);
-                    this.playerRaise(player, Math.max(raiseAmount, this.currentBet + 10));
-                } else {
-                    console.log(`🤖 ${player.name} decision: CALL (strong hand)`);
-                    this.playerCall(player);
-                }
-            } else if (callAmount === 0) {
-                // ไม่ต้องเรียก -> Raise
-                const raiseAmount = Math.min(
-                    Math.floor(handStrength * player.chips * 0.5),
-                    player.chips
-                );
-                console.log(`🤖 ${player.name} decision: RAISE ${raiseAmount} (strong hand, no bet)`);
-                this.playerRaise(player, Math.max(raiseAmount, 20));
-            } else {
-                // เงินไม่พอเรียก -> All-in
-                console.log(`🤖 ${player.name} decision: CALL (strong hand, all-in)`);
-                this.playerCall(player);
-            }
-        }
+        // 🧠 ถ้าไม่ใช่เทิร์นแรก ใช้ AI Cosmic God ตามปกติ
+        const universeAnalysis = this.activateUniverseBrain(player);
+        const decision = this.universeGodStrategy(player, universeAnalysis);
+        this.executeUniverseDecision(player, decision);
         
     } catch (error) {
-        console.error(`❌ AI decision error for ${player.name}:`, error);
-        // ⭐️ Fallback: ถ้า AI decision error ให้ fold อัตโนมัติ
+        console.error(`💥 UNIVERSE GOD AI crash:`, error);
+        this.universeFallback(player);
+    }
+}
+
+// 🎯 ตรวจสอบว่าเป็นเทิร์นแรกของรอบหรือไม่
+isFirstTurnOfRound(player) {
+    // นับจำนวนผู้เล่นที่ได้เล่นไปแล้วในรอบนี้
+    let playersActed = 0;
+    this.players.forEach(p => {
+        if (p.currentBet > 0 || p.isFolded) {
+            playersActed++;
+        }
+    });
+    
+    // ถ้ายังไม่มีใครเล่นเลยในรอบนี้ = เทิร์นแรก
+    const isFirstTurn = playersActed === 0;
+    
+    console.log(`🔍 First Turn Check: ${player.name} - playersActed: ${playersActed}, isFirstTurn: ${isFirstTurn}`);
+    
+    return isFirstTurn;
+}
+
+// 🧠 ระบบสมองกลระดับจักรวาล (เดิม)
+activateUniverseBrain(player) {
+    return {
+        cosmicPower: this.analyzeCosmicPower(player),
+        multiverseMatrix: this.createMultiverseMatrix(player),
+        temporalSight: this.seeAcrossTime(player),
+        humanPsychology: this.understandHumanMind(player),
+        instantMath: this.calculateInstantly(player)
+    };
+}
+
+// 🎯 กลยุทธ์เทพแห่งจักรวาล (ปรับให้ CALL บ้างในเทิร์นอื่นๆ)
+universeGodStrategy(player, analysis) {
+    const {
+        cosmicPower,
+        multiverseMatrix,
+        temporalSight,
+        humanPsychology,
+        instantMath
+    } = analysis;
+
+    const universeScore = this.calculateUniverseScore(analysis);
+    
+    // 🎯 เพิ่มโอกาส CALL ในเทิร์นที่ไม่ใช่แรก
+    const callChance = this.calculateCallChance(analysis);
+    
+    // ถ้ามีโอกาส CALL สูง และไม่ใช่มือแย่มาก
+    if (callChance > 0.7 && universeScore > 0.3) {
+        return { action: 'CALL' };
+    }
+    
+    // 🌌 ระดับพลังแห่งจักรวาล (เดิม)
+    if (universeScore > 0.98) {
+        return this.godOfPokerStrategy(player, analysis);
+    }
+    else if (universeScore > 0.90) {
+        return this.universeDominatorStrategy(player, analysis);
+    }
+    else if (universeScore > 0.80) {
+        return this.cosmicMasterStrategy(player, analysis);
+    }
+    else if (universeScore > 0.65) {
+        return this.quantumGeniusStrategy(player, analysis);
+    }
+    else {
+        return this.multiverseSurvivalStrategy(player, analysis);
+    }
+}
+
+// 🎯 คำนวณโอกาสที่จะ CALL
+calculateCallChance(analysis) {
+    const { instantMath, humanPsychology } = analysis;
+    
+    let callChance = 0.3; // base chance
+    
+    // เพิ่มโอกาส CALL ถ้า pot odds ดี
+    if (instantMath.instantProbabilities.winProbability > 0.4) {
+        callChance += 0.3;
+    }
+    
+    // เพิ่มโอกาส CALL ถ้าผู้เล่นจริงกำลังก้าวร้าว
+    if (humanPsychology.emotionalState.confidence > 0.7) {
+        callChance += 0.2;
+    }
+    
+    // ลดโอกาส CALL ถ้ามือแย่
+    if (instantMath.instantProbabilities.handStrength < 0.3) {
+        callChance -= 0.4;
+    }
+    
+    return Math.max(0.1, Math.min(callChance, 0.8));
+}
+
+// 🏆 กลยุทธ์เทพเจ้าแห่งโป๊กเกอร์ (ปรับให้ CALL บ้าง)
+godOfPokerStrategy(player, analysis) {
+    const { cosmicPower, humanPsychology } = analysis;
+    
+    // 30% โอกาสที่จะ CALL แทนที่จะ RAISE ตลอด
+    if (Math.random() < 0.3) {
+        return { action: 'CALL' };
+    }
+    
+    if (cosmicPower.destinyScore > 0.95) {
+        const godRaise = this.calculateGodRaise(player, analysis);
+        return { action: 'RAISE', amount: godRaise };
+    }
+    
+    if (humanPsychology.emotionalState.confidence > 0.8) {
+        return this.breakConfidenceStrategy(player, analysis);
+    }
+    
+    return { action: 'RAISE', amount: player.chips };
+}
+
+// 🌌 กลยุทธ์ผู้ครอบครองจักรวาล (ปรับให้ CALL บ้าง)
+universeDominatorStrategy(player, analysis) {
+    const { multiverseMatrix, temporalSight } = analysis;
+    
+    // 40% โอกาส CALL
+    if (Math.random() < 0.4) {
+        return { action: 'CALL' };
+    }
+    
+    const bestUniverse = multiverseMatrix.optimalUniverse;
+    
+    if (temporalSight.riskAssessment.low > 0.7) {
+        return this.convertUniverseToDecision(bestUniverse);
+    }
+    
+    return this.createVictoryPath(player, analysis);
+}
+
+// ⭐ กลยุทธ์ปรมาจารย์จักรวาล (ปรับให้ CALL บ้าง)
+cosmicMasterStrategy(player, analysis) {
+    const { instantMath, humanPsychology } = analysis;
+    
+    // 50% โอกาส CALL
+    if (Math.random() < 0.5) {
+        return { action: 'CALL' };
+    }
+    
+    const optimalAction = instantMath.instantProbabilities.optimalBetSize;
+    
+    if (humanPsychology.emotionalState.frustration > 0.6) {
+        return this.exploitFrustrationStrategy(player, analysis);
+    }
+    
+    return { action: 'RAISE', amount: optimalAction };
+}
+
+// ⚛️ กลยุทธ์อัจฉริยะเชิงควอนตัม (ปรับให้ CALL บ้าง)
+quantumGeniusStrategy(player, analysis) {
+    const { cosmicPower, multiverseMatrix } = analysis;
+    
+    // 60% โอกาส CALL
+    if (Math.random() < 0.6) {
+        return { action: 'CALL' };
+    }
+    
+    if (cosmicPower.elementAlignment.favorable) {
+        return this.elementalAdvantageStrategy(player, analysis);
+    }
+    
+    const safeUniverse = multiverseMatrix.safestUniverse;
+    return this.convertUniverseToDecision(safeUniverse);
+}
+
+// 🌍 กลยุทธ์การเอาชีวิตรอดในพหุภพ (ปรับให้ CALL บ้าง)
+multiverseSurvivalStrategy(player, analysis) {
+    const { multiverseMatrix, temporalSight } = analysis;
+    
+    // 70% โอกาส CALL ในโหมดเอาชีวิตรอด
+    if (Math.random() < 0.7) {
+        return { action: 'CALL' };
+    }
+    
+    const survivalUniverse = this.findSurvivalUniverse(multiverseMatrix.universes);
+    
+    if (temporalSight.riskAssessment.high > 0.5) {
+        return { action: 'FOLD' };
+    }
+    
+    return this.convertUniverseToDecision(survivalUniverse);
+}
+
+// 🎭 สร้างการเคลื่อนไหวที่สร้างความสับสน (เพิ่ม CALL)
+generateConfusionMove(analysis) {
+    const moves = [
+        { action: 'RAISE', amount: 42 },
+        { action: 'RAISE', amount: 77 },
+        { action: 'CALL' },  // ✅ เพิ่ม CALL
+        { action: 'CALL' },  // ✅ เพิ่ม CALL อีก
+        { action: 'FOLD' }
+    ];
+    
+    return moves[Math.floor(Math.random() * moves.length)];
+}
+
+// 🚀 ปฏิบัติการระดับจักรวาล (เดิม)
+executeUniverseDecision(player, decision) {
+    console.log(`🌌 ${player.name} UNIVERSE execution: ${decision.action} ${decision.amount || ''}`);
+    
+    const cosmicDelay = 1000 + Math.random() * 2000;
+    
+    setTimeout(() => {
+        switch (decision.action) {
+            case 'FOLD':
+                this.playerFold(player);
+                break;
+            case 'CHECK':
+                this.playerCheck(player);
+                break;
+            case 'CALL':
+                this.playerCall(player);
+                break;
+            case 'RAISE':
+                this.playerRaise(player, decision.amount);
+                break;
+            default:
+                this.universeFallback(player);
+        }
+    }, cosmicDelay);
+}
+
+// 🌠 Fallback ระดับจักรวาล (ปรับให้ CALL มากขึ้น)
+universeFallback(player) {
+    const callAmount = this.currentBet - player.currentBet;
+    
+    if (callAmount === 0) {
+        this.playerCheck(player);
+    } else if (player.chips >= callAmount) {
+        // 80% โอกาส CALL ใน fallback
+        if (Math.random() < 0.8) {
+            this.playerCall(player);
+        } else {
+            this.playerFold(player);
+        }
+    } else {
         this.playerFold(player);
     }
 }
-    
+
+// 🎯 วิธีช่วยในการ Debug
+debugTurnOrder() {
+    console.log('🔍 TURN ORDER DEBUG:');
+    this.players.forEach((player, index) => {
+        console.log(`Player ${index}: ${player.name}, Bet: ${player.currentBet}, Folded: ${player.isFolded}`);
+    });
+    console.log(`Current Bet: ${this.currentBet}, Game Phase: ${this.gamePhase}`);
+}
     calculateHandStrength(player) {
-        const allCards = [...player.cards, ...this.communityCards];
-        if (allCards.length < 2) return 0.5;
-        
-        const handResult = this.evaluateHand(allCards);
-        
-        const baseScores = {
-            'High Card': 0.1, 'One Pair': 0.3, 'Two Pair': 0.5, 'Three of a Kind': 0.6,
-            'Straight': 0.7, 'Flush': 0.8, 'Full House': 0.9, 'Four of a Kind': 0.95,
-            'Straight Flush': 0.99, 'Royal Flush': 1.0
-        };
-        
-        let score = baseScores[handResult.rank] || 0.1;
-        
-        if (handResult.rank === 'High Card' || handResult.rank === 'One Pair') {
-            const highCardBonus = handResult.tiebreaker[0] / 140;
-            score += highCardBonus;
+        try {
+            const allCards = [...player.cards, ...this.communityCards];
+            if (allCards.length < 2) return 0.3;
+            
+            const handResult = this.evaluateHand(allCards);
+            
+            const baseScores = {
+                'High Card': 0.1, 'One Pair': 0.3, 'Two Pair': 0.5, 
+                'Three of a Kind': 0.6, 'Straight': 0.7, 'Flush': 0.8, 
+                'Full House': 0.9, 'Four of a Kind': 0.95, 
+                'Straight Flush': 0.99, 'Royal Flush': 1.0
+            };
+            
+            let score = baseScores[handResult.rank] || 0.2;
+            
+            // ⭐️ คำนวณค่าไพ่เริ่มต้นถ้ายังไม่มี community cards
+            if (this.communityCards.length === 0) {
+                const cardValues = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
+                const highCard1 = cardValues[player.cards[0].value];
+                const highCard2 = cardValues[player.cards[1].value];
+                const maxCard = Math.max(highCard1, highCard2);
+                const minCard = Math.min(highCard1, highCard2);
+                
+                // ⭐️ เพิ่มคะแนนสำหรับไพ่สูงและไพ่คู่
+                if (highCard1 === highCard2) {
+                    score = Math.min(0.8, 0.3 + (maxCard / 50)); // Pocket pairs
+                } else if (maxCard >= 12) {
+                    score = Math.min(0.6, 0.2 + (maxCard / 40)); // High cards
+                } else if (maxCard - minCard === 1 || maxCard - minCard === -1) {
+                    score = Math.min(0.5, 0.15 + (maxCard / 45)); // Connected cards
+                }
+            }
+            
+            // ⭐️ เพิ่มความน่าจะเป็นเล็กน้อยตาม personality
+            if (player.personality === 'aggressive') {
+                score = Math.min(1.0, score * 1.15);
+            } else if (player.personality === 'conservative') {
+                score = Math.max(0.1, score * 0.85);
+            }
+            
+            // ⭐️ เพิ่ม randomness เล็กน้อย
+            const randomFactor = 0.9 + Math.random() * 0.2;
+            score = score * randomFactor;
+            
+            return Math.min(Math.max(score, 0.1), 1.0);
+            
+        } catch (error) {
+            console.error('Error calculating hand strength:', error);
+            return 0.3; // ค่า default ที่ปลอดภัย
         }
-        
-        return Math.min(score, 1.0);
-    }
-    
-    calculatePositionFactor(player) {
-        const playerIndex = this.players.indexOf(player);
-        const dealerIndex = this.dealerIndex;
-        
-        if (playerIndex === (dealerIndex + 1) % 4 || playerIndex === (dealerIndex + 2) % 4) {
-            return 0.8;
-        } else if (playerIndex === (dealerIndex + 3) % 4) {
-            return 0.5;
-        } else {
-            return 0.3;
-        }
-    }
-    
-    calculatePotOdds(player) {
-        const callAmount = this.currentBet - player.currentBet;
-        if (callAmount <= 0) return 1.0;
-        
-        const potOdds = callAmount / (this.pot + callAmount);
-        return Math.max(0, 1 - potOdds);
-    }
-    
-    calculateBluffFactor(player) {
-        return Math.random() < 0.2 ? 0.7 : 0.3;
     }
     
     playerFold(player) {
-        console.log('🃏 Player fold:', player.name);
+        console.log(`🃏 ${player.name} folds`);
         player.isFolded = true;
         player.status = 'folded';
         this.addLogEntry(player.name + ' Fold');
-        this.nextPlayerTurn();
+        
+        // ⭐️ เรียก next turn โดยตรงโดยไม่รอ
+        setTimeout(() => {
+            this.nextPlayerTurn();
+        }, 500);
     }
     
     playerCheck(player) {
-        console.log('✅ Player check:', player.name);
+        console.log(`✅ ${player.name} checks`);
         player.status = 'checked';
         this.addLogEntry(player.name + ' Check');
-        this.nextPlayerTurn();
+        
+        setTimeout(() => {
+            this.nextPlayerTurn();
+        }, 500);
     }
     
     playerCall(player) {
-        console.log('📞 Player call:', player.name);
+        console.log(`📞 ${player.name} calls`);
         const callAmount = this.currentBet - player.currentBet;
         const actualCallAmount = Math.min(callAmount, player.chips);
         
@@ -832,14 +1410,17 @@ makeAIDecision(player) {
             } else {
                 this.addLogEntry(player.name + ' Call ' + actualCallAmount);
             }
-            this.nextPlayerTurn();
+            
+            setTimeout(() => {
+                this.nextPlayerTurn();
+            }, 500);
         } else {
             this.playerFold(player);
         }
     }
     
     playerRaise(player, amount) {
-        console.log('⬆️ Player raise:', player.name, amount);
+        console.log(`⬆️ ${player.name} raises to ${amount}`);
         const actualAmount = Math.min(amount, player.chips);
         const totalBet = player.currentBet + actualAmount;
         
@@ -854,45 +1435,65 @@ makeAIDecision(player) {
             } else {
                 this.addLogEntry(player.name + ' Raise เป็น ' + totalBet);
             }
-            this.nextPlayerTurn();
+            
+            setTimeout(() => {
+                this.nextPlayerTurn();
+            }, 500);
         } else {
             this.playerCall(player);
         }
     }
     
-    enablePlayerActions() {
-        const currentPlayer = this.players[this.currentPlayerIndex];
+    // ⭐️ แก้ไข method enablePlayerActions()
+enablePlayerActions() {
+    const currentPlayer = this.players[this.currentPlayerIndex];
+    
+    if (!currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated) {
+        const foldBtn = document.getElementById('fold-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const callBtn = document.getElementById('call-btn');
+        const raiseBtn = document.getElementById('raise-btn');
+        const betSlider = document.getElementById('bet-slider');
         
-        if (!currentPlayer.isAI && !currentPlayer.isFolded && !currentPlayer.isEliminated && currentPlayer.chips > 0) {
-            const foldBtn = document.getElementById('fold-btn');
-            const checkBtn = document.getElementById('check-btn');
-            const callBtn = document.getElementById('call-btn');
-            const raiseBtn = document.getElementById('raise-btn');
-            const betSlider = document.getElementById('bet-slider');
-            
-            if (foldBtn) foldBtn.disabled = false;
-            
-            if (currentPlayer.currentBet === this.currentBet) {
-                if (checkBtn) checkBtn.disabled = false;
-                if (callBtn) callBtn.disabled = true;
-            } else {
-                if (checkBtn) checkBtn.disabled = true;
-                if (callBtn) callBtn.disabled = false;
-            }
-            
-            if (currentPlayer.chips > 0) {
-                if (raiseBtn) raiseBtn.disabled = false;
-                if (betSlider) {
-                    betSlider.disabled = false;
-                    betSlider.max = currentPlayer.chips;
-                    betSlider.value = Math.min(50, currentPlayer.chips);
-                    this.updateBetAmount();
-                }
-            }
-        } else {
-            this.disablePlayerActions();
+        // ✅ เปิดปุ่ม Fold เสมอ
+        if (foldBtn) foldBtn.disabled = false;
+        
+        // ✅ เงื่อนไขการเปิดปุ่ม Check และ Call ที่ถูกต้อง
+        const canCheck = (this.currentBet === 0) || (currentPlayer.currentBet === this.currentBet);
+        const canCall = (this.currentBet > 0) && (currentPlayer.currentBet < this.currentBet) && (currentPlayer.chips > 0);
+        
+        console.log(`🔍 Check Debug: currentBet=${this.currentBet}, playerBet=${currentPlayer.currentBet}, canCheck=${canCheck}, canCall=${canCall}`);
+        
+        if (checkBtn) {
+            checkBtn.disabled = !canCheck;
+            console.log(`✅ Check button: ${checkBtn.disabled ? 'DISABLED' : 'ENABLED'}`);
         }
+        
+        if (callBtn) {
+            callBtn.disabled = !canCall;
+            if (!callBtn.disabled) {
+                const callAmount = Math.min(this.currentBet - currentPlayer.currentBet, currentPlayer.chips);
+                callBtn.textContent = `Call ${callAmount}`;
+            }
+        }
+        
+        // ✅ เปิดปุ่ม Raise ถ้ามีชิพ
+        if (raiseBtn && currentPlayer.chips > 0) {
+            raiseBtn.disabled = false;
+        }
+        
+        // ✅ ตั้งค่า Bet Slider
+        if (betSlider && currentPlayer.chips > 0) {
+            betSlider.disabled = false;
+            betSlider.max = currentPlayer.chips;
+            betSlider.value = Math.min(100, currentPlayer.chips);
+            this.updateBetAmount();
+        }
+        
+    } else {
+        this.disablePlayerActions();
     }
+}
     
     disablePlayerActions() {
         const foldBtn = document.getElementById('fold-btn');
@@ -1274,6 +1875,7 @@ makeAIDecision(player) {
         this.bettingRoundComplete = false;
         this.showAICards = false;
         this.isProcessingTurn = false;
+        this.bettingRoundStarted = false;
         
         // ⭐️ ล้าง timeout เมื่อรีเซ็ต
         if (this.aiDecisionTimeout) {
@@ -1393,8 +1995,6 @@ makeAIDecision(player) {
         const continueBtn = document.getElementById('continue-btn');
         const betSlider = document.getElementById('bet-slider');
         const resetBtn = document.getElementById('reset-btn');
-        const debugBtn = document.getElementById('debug-btn');
-        const forceTurnBtn = document.getElementById('force-turn-btn');
         
         if (startBtn) {
             startBtn.addEventListener('click', () => {
@@ -1455,20 +2055,42 @@ makeAIDecision(player) {
                 this.resetGame();
             });
         }
-        if (debugBtn) {
-    debugBtn.addEventListener('click', () => {
-        this.debugAIState();
-    });
-}
-if (forceTurnBtn) {
-    forceTurnBtn.addEventListener('click', () => {
-        this.forceNextTurn();
-    });
-}
         
         console.log('Game event listeners initialized');
     }
+
+    // ⭐️ เพิ่ม method สำหรับ debug
+    debugGameState() {
+        console.log('🐛 GAME STATE DEBUG:');
+        console.log('Game Started:', this.gameStarted);
+        console.log('Game Over:', this.gameOver);
+        console.log('Round Completed:', this.roundCompleted);
+        console.log('Game Phase:', this.gamePhase);
+        console.log('Current Bet:', this.currentBet);
+        console.log('Pot:', this.pot);
+        console.log('Processing Turn:', this.isProcessingTurn);
+        console.log('Betting Round Complete:', this.bettingRoundComplete);
+        
+        this.players.forEach((player, index) => {
+            console.log(`Player ${index}: ${player.name}`);
+            console.log(`  Chips: ${player.chips}, Bet: ${player.currentBet}`);
+            console.log(`  Folded: ${player.isFolded}, Eliminated: ${player.isEliminated}`);
+            console.log(`  Status: ${player.status}, AI: ${player.isAI}`);
+        });
+    }
+
+    // ⭐️ เพิ่ม method สำหรับ force next turn
+    forceNextTurn() {
+        console.log('🔧 FORCE NEXT TURN');
+        this.isProcessingTurn = false;
+        if (this.aiDecisionTimeout) {
+            clearTimeout(this.aiDecisionTimeout);
+            this.aiDecisionTimeout = null;
+        }
+        this.nextPlayerTurn();
+    }
 }
+
 
 // ⭐️ คลาสระบบธนาคารแบบไม่กระทบเกม
 class BankSystem {
@@ -1478,12 +2100,44 @@ class BankSystem {
         this.passiveIncomeInterval = null;
         this.passiveIncomeTimeLeft = 300;
         this.transactions = ['เริ่มต้น: เงิน 2000 ชิป'];
+        this.isCollapsed = false; // สถานะเริ่มต้นเป็นแบบเปิด
         
         this.initializeBankUI();
+        this.initializeBankToggle();
         this.startPassiveIncomeTimer();
         this.updateBankDisplay();
         
-        console.log('Bank System initialized (No-Interference Mode)');
+        console.log('Bank System initialized with toggle feature');
+    }
+    
+    initializeBankToggle() {
+        const toggleBtn = document.getElementById('bank-toggle-btn');
+        const bankSidebar = document.getElementById('bank-sidebar');
+        
+        if (toggleBtn && bankSidebar) {
+            toggleBtn.addEventListener('click', () => {
+                this.toggleBank();
+            });
+        }
+    }
+    
+    toggleBank() {
+        const bankSidebar = document.getElementById('bank-sidebar');
+        const bankContainer = document.getElementById('bank-container');
+        
+        if (bankSidebar) {
+            this.isCollapsed = !this.isCollapsed;
+            
+            if (this.isCollapsed) {
+                // โหมดปิด - แสดงแค่ปุ่ม
+                bankSidebar.classList.add('collapsed');
+                this.addLogEntry('📦 ปิดแผงธนาคารแล้ว');
+            } else {
+                // โหมดเปิด - แสดงทั้งหมด
+                bankSidebar.classList.remove('collapsed');
+                this.addLogEntry('🏦 เปิดแผงธนาคารแล้ว');
+            }
+        }
     }
     
     initializeBankUI() {
@@ -1511,8 +2165,6 @@ class BankSystem {
         if (withdrawAmount) {
             withdrawAmount.addEventListener('input', () => this.validateInputs());
         }
-        
-        // ⭐️ ไม่แตะต้องปุ่มเริ่มเกมของระบบเกม
     }
     
     updateTableChips() {
@@ -1731,6 +2383,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.bankSystem = new BankSystem(window.pokerGame);
                 console.log('✅ Bank system initialized');
                 console.log('🎯 Both systems running independently');
+                
+                // ⭐️ เพิ่ม debug buttons
+                const debugBtn = document.createElement('button');
+                debugBtn.textContent = 'Debug Game';
+                debugBtn.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 1000; background: #ff6b6b; color: white; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer;';
+                debugBtn.onclick = () => window.pokerGame.debugGameState();
+                document.body.appendChild(debugBtn);
+                
+                const forceTurnBtn = document.createElement('button');
+                forceTurnBtn.textContent = 'Force Next Turn';
+                forceTurnBtn.style.cssText = 'position: fixed; top: 40px; right: 10px; z-index: 1000; background: #ffa500; color: white; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer;';
+                forceTurnBtn.onclick = () => window.pokerGame.forceNextTurn();
+                document.body.appendChild(forceTurnBtn);
+                
             } catch (bankError) {
                 console.error('❌ Bank system error (game still works):', bankError);
             }
@@ -1740,37 +2406,3 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('❌ Game initialization failed:', gameError);
     }
 });
-// ⭐️ เพิ่ม method สำหรับ debug AI state
-debugAIState() {
-    console.log('🐛 AI State Debug:');
-    this.players.forEach((player, index) => {
-        if (player.isAI) {
-            console.log(`AI ${index}: ${player.name}`);
-            console.log(`  - Chips: ${player.chips}`);
-            console.log(`  - Folded: ${player.isFolded}`);
-            console.log(`  - Eliminated: ${player.isEliminated}`);
-            console.log(`  - Current Bet: ${player.currentBet}`);
-            console.log(`  - Status: ${player.status}`);
-        }
-    });
-    console.log(`Current Bet: ${this.currentBet}`);
-    console.log(`Pot: ${this.pot}`);
-    console.log(`Game Phase: ${this.gamePhase}`);
-    console.log(`Current Player Index: ${this.currentPlayerIndex}`);
-}
-// ⭐️ เพิ่ม method สำหรับ force next turn (สำหรับ debug)
-forceNextTurn() {
-    console.log('🔧 Force next turn called');
-    if (this.isProcessingTurn) {
-        console.log('Resetting processing turn flag');
-        this.isProcessingTurn = false;
-    }
-    if (this.aiDecisionTimeout) {
-        console.log('Clearing AI timeout');
-        clearTimeout(this.aiDecisionTimeout);
-        this.aiDecisionTimeout = null;
-    }
-    this.nextPlayerTurn();
-}
-
-
